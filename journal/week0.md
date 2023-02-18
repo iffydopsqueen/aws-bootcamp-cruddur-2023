@@ -17,11 +17,14 @@ sudo ./aws/install
 aws --version
 ```
 
+
 ### Create an IAM Admin User
 
 Following the steps provided by Amazon, I successfully created an IAM user with `admin` privileges
 
 [Creating an Administrator User](https://docs.aws.amazon.com/streams/latest/dev/setting-up.html#setting-up-iam)
+
+
 
 ### Create a Budget
 
@@ -32,11 +35,13 @@ I created just 2 budgets not to go over the free-tier limit.
 ![Image of The Budgets I Created](assets/budgets.png) 
 
 
+
 ### Create a Billing alarm
 
 I created an alarm to notify me when my daily estimated charges are going over $1. I can't afford any kind of spend. 
 
 ![Image of The Billing Alarm I Created](assets/billing-alarm.png)
+
 
 
 ### Recreate Logical Architectural Deisgn
@@ -46,6 +51,7 @@ Here is my recreation of the logical diagram
 ![Cruddur Logical Design](assets/logical-architecture-recreation-diagram.png)
 
 [Lucid Charts Share Link](https://lucid.app/lucidchart/d666d7ec-62f8-4674-87bf-5b73b2cbb2ca/edit?viewport_loc=-373%2C83%2C2219%2C1107%2CtDPx9NrE1ha4&invitationId=inv_f2376395-0591-4336-bc43-db1ebf838aa4)
+
 
 
 ### Recreate Conceptual Architectural Deisgn on a Napkin
@@ -66,6 +72,7 @@ Below are some of the challenges I was able to work on:
 
 [Lucid Charts Share Link](https://lucid.app/lucidchart/d666d7ec-62f8-4674-87bf-5b73b2cbb2ca/edit?viewport_loc=-890%2C-420%2C3328%2C1660%2CfPhxy5N10Ybw&invitationId=inv_f2376395-0591-4336-bc43-db1ebf838aa4)
 
+
 2. Reviewed part of the questions of each pillar in the well-architected tool
 
 3. Created an EventBridge event for our health dashboards 
@@ -74,6 +81,7 @@ This event is created alongside an SNS topic with a subscription for our health 
 
 ![Proof of EventBridge setup with SNS subscription](assets/proof-of-eventbridge-setup.png)
 ![Proof of SNS subscription](assets/proof-of-sns-subscription.png)
+
 
 4. Enabled MFA for both the root account and the user account created as well as an IAM role
 
