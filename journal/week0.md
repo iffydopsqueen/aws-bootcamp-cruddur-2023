@@ -2,7 +2,7 @@
 
 ## Required Homework/Tasks
 
-### Install and Verify AWS CLI 
+### 1. Install and Verify AWS CLI 
 
 Using `Gitpod` workspace, I was able to install the AWS CLI for Linux in the **Terminal** following the instructions in this documentation:
 
@@ -18,7 +18,7 @@ aws --version
 ```
 
 
-### Create an IAM Admin User
+### 2. Create an IAM Admin User
 
 Following the steps provided by Amazon, I successfully created an IAM user with `admin` privileges
 
@@ -26,7 +26,7 @@ Following the steps provided by Amazon, I successfully created an IAM user with 
 
 
 
-### Create a Budget
+### 3. Create a Budget
 
 Watching this video, [Creating Budget via CLI](https://www.youtube.com/watch?v=OdUnNuKylHg&list=PLBfufR7vyJJ7k25byhRXJldB5AiwgNnWv&index=14) provided by the instructor, I created my own Budget to track my monthly spend as well as my AWS credits. I cannot afford to spend more than I have. 
 
@@ -36,7 +36,7 @@ I created just 2 budgets not to go over the free-tier limit.
 
 
 
-### Create a Billing alarm
+### 4. Create a Billing alarm
 
 I created an alarm to notify me when my daily estimated charges are going over $1. I can't afford any kind of spend. 
 
@@ -44,7 +44,7 @@ I created an alarm to notify me when my daily estimated charges are going over $
 
 
 
-### Recreate Logical Architectural Deisgn
+### 5. Recreate Logical Architectural Deisgn
 
 Here is my recreation of the logical diagram
 
@@ -54,7 +54,7 @@ Here is my recreation of the logical diagram
 
 
 
-### Recreate Conceptual Architectural Deisgn on a Napkin
+### 6. Recreate Conceptual Architectural Deisgn on a Napkin
 
 Here is my recreation of the conceptual diagram on a napkin
 
@@ -66,7 +66,7 @@ Here is my recreation of the conceptual diagram on a napkin
 
 Below are some of the challenges I was able to work on:
 
-1. Created the architectural diagram of a CI/CD pipeline
+**1. Created the architectural diagram of a CI/CD pipeline**
 
 ![Logical Diagram of CI/CD Pipeline](assets/cicd-pipeline-architectural-diagram.png)
 
@@ -75,7 +75,7 @@ Below are some of the challenges I was able to work on:
 
 2. Reviewed part of the questions of each pillar in the well-architected tool
 
-3. Created an EventBridge event for our health dashboards 
+**3. Created an EventBridge event for our health dashboards** 
 
 This event is created alongside an SNS topic with a subscription for our health dashboards to send notifications when there is a service health issue.
 
