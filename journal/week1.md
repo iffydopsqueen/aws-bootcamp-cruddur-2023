@@ -15,7 +15,7 @@ touch backend-flask/Dockerfile
 ```
 
 Go ahead and paste this content into your `Dockerfile` 
-```docker
+```bash
 # This image is fetched from Docker Hub
 FROM python:3.10-slim-buster
 
@@ -95,7 +95,7 @@ touch frontend-react-js/Dockerfile
 ```
 
 Go ahead and paste this content into your `Dockerfile` 
-```docker
+```bash
 # This image is fetched from Docker Hub
 FROM node:16.18
 
@@ -499,6 +499,7 @@ psql -h localhost -U postgres
 
 
 ## Homework Challenges
+None at the moment
 
 ## Misc Notes
 
