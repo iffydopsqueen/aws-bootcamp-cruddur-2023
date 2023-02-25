@@ -86,6 +86,8 @@ If those variables aren't set, let's go ahead and set it using this command:
 docker run --rm -p 4567:4567 -it -e FRONTEND_URL='*' -e BACKEND_URL='*' backend-flask:v1.0
 ```
 
+That should fix the `404` error. To be very sure the issue is fixed, append this url `/api/activities/home` to your backend URL and you should get back a `json` file. Woohoo! 
+
 ### 2. Containerizing the Frontend
 
 For the frontend, create a `Dockerfile` in the `frontend-react-js` directory. Either do this by using the CLI or in the UI. 
