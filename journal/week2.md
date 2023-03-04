@@ -162,16 +162,16 @@ With our previously hard-coded attributes `app.now` and `app.result_length`, let
 
 *Query 1*
 
-![Image of Query 1](assets/honeycomb-query1)
+![Image of Query 1](assets/honeycomb-query1.png)
 
 *Query 2*
 
-![Image of Query 2](assets/honeycomb-query2)
+![Image of Query 2](assets/honeycomb-query2.png)
 
 *Query 3*
 
 Latency - checks how long these requests take
-![Image of Query 3](assets/honeycomb-query3)
+![Image of Query 3](assets/honeycomb-query3.png)
 
 
 ### 5. Instrument AWS X-ray into the backend
