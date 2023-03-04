@@ -108,6 +108,7 @@ Confirm that honeycomb is getting your data. If not, here are some steps for tro
 Checkout this [doc](https://docs.honeycomb.io/getting-data-in/opentelemetry/python/#creating-spans) for better documentation
 
 **Configure a Tracer**
+
 Add the following lines of code to your `backend-flask/services/home_activities.py` file:
 ```python
 from opentelemetry import trace
@@ -117,6 +118,7 @@ tracer = trace.get_tracer("home.activities") # the tracer name here is home_acti
 ```
 
 **Create a Span**
+
 Create a span with our configured **tracer**. A span simply describes what is happening in your application.
 
 Add the following lines of code to your `backend-flask/services/home_activities.py` file:
@@ -134,6 +136,7 @@ To create some spans, append this URL to your backend, `.../api/activities/home`
 ![Image of Created Spans](assets/created-spans.png)
 
 **Add Attribute to Span**
+
 These attributes gives us more context to our logs. Go ahead and add a few by including these lines of code to your `backend-flask/services/home_activities.py` file:
 ```python
 # in the def run(): section
@@ -158,12 +161,15 @@ After the updates, test out your configuration by running this command:
 With our previously hard-coded attributes `app.now` and `app.result_length`, let's create and run some queries
 
 *Query 1*
+
 ![Image of Query 1](assets/honeycomb-query1)
 
 *Query 2*
+
 ![Image of Query 2](assets/honeycomb-query2)
 
 *Query 3*
+
 Latency - checks how long these requests take
 ![Image of Query 3](assets/honeycomb-query3)
 
@@ -173,6 +179,7 @@ Latency - checks how long these requests take
 AWS X-Ray provides a complete view of requests as they travel through your application and filters visual data across payloads, functions, traces, services, APIs, and more with no-code and low-code motions. Read more [here](https://aws.amazon.com/xray/)
 
 **Install AWS X-ray**
+
 First, we need to install the [AWS SDK](https://github.com/aws/aws-xray-sdk-python) 
 
 Add the following lines to the `requirements.txt` file located in the `backend-flask/` directory
@@ -187,6 +194,7 @@ pip install -r requirements.txt
 ```
 
 **Instrument X-ray for Flask**
+
 To instrument our backend, add the following lines of code to the `backend-flask/app.py`
 ```python
 from aws_xray_sdk.core import xray_recorder
@@ -201,6 +209,7 @@ XRayMiddleware(app, xray_recorder)
 ![Snippet of Code Configuration](assets/xray-configuration.png)
 
 **Create sampling rule**
+
 Create a `json` file in the `aws/json` directory 
 ```bash
 touch aws/json/xray.json
@@ -236,7 +245,8 @@ aws xray create-group \
 aws xray create-sampling-rule --cli-input-json file://aws/json/xray.json
 ```
 
-** **
+**Configure X-ray daemon with docker-compose**
+
 Setup the daemon in the `docker-compose.yml` file by adding these following lines:
 ```YAML
 # add these env variables above in the ENV section
@@ -259,6 +269,7 @@ After the updates, test out your configuration by running this command:
 ` docker compose up` 
 
 Check your x-ray container logs to make sure logs were successfully sent to AWS X-ray.
+
 ![Image of CLI Container logs](assets/CLI-container-logs.png)
 
 ![Image of Console Container logs](assets/console-container-logs.png)
@@ -289,6 +300,7 @@ from aws_xray_sdk.core import xray_recorder
 ```
 
 *Additional Step:*
+
 Add the following contents to the `app.py` file:
 ```python
 # replace these blocks of code with this
@@ -330,6 +342,7 @@ pip install -r requirements.txt
 ```
 
 **Set environment variables for watchtower**
+
 In the `docker-compose.yml` file, add the following lines:
 ```YAML
 AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION}"
@@ -414,12 +427,14 @@ Follow the instructions below to retrieve your access token from rollbar :
 ![Image of Rollbar Access Token](assets/rollbar-access-token.png)
 
 **Add ACCESS_TOKEN to `docker-compose.yml` file**
+
 ```YAML
 # under environment variables
 ROLLBAR_ACCESS_TOKEN: "${ROLLBAR_ACCESS_TOKEN}"
 ```
 
 **Import Rollbar Libraries**
+
 Let's import the rollbar libraries 
 Add the following lines in the `app.py` file 
 ```python
@@ -449,6 +464,7 @@ def init_rollbar():
 ```
 
 **Add Rollbar Endpoint**
+
 Below the code, check for the `@app.route...` to add a rollbar endpoint 
 ```python
 @app.route('/rollbar/test')
