@@ -494,9 +494,6 @@ Now we should see the error message logged in your rollbar account, under "Items
 
 
 
-## Homework Challenges
-None at the moment
-
 ## Misc Notes
 
 Make our application ports automatically public when started up.
