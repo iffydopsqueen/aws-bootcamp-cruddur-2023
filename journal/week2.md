@@ -98,7 +98,7 @@ Confirm that honeycomb is getting your data. If not, here are some steps for tro
 - First, check what API key your environment is using. Do that by checking your env variables 
 `env | grep HONEYCOMB_API_KEY`
 
-- Second, copy that API key to this link [Troubleshoot Honeycomb](https://honeycomb-whoami.glitch.me/) to debug what environment is associated with that key. Read more about glitch ![here](https://glitch.com/)
+- Second, copy that API key to this link [Troubleshoot Honeycomb](https://honeycomb-whoami.glitch.me/) to debug what environment is associated with that key. Read more about glitch [here](https://glitch.com/)
 
 - Third, navigate to the appropriate environment, and you should see your data. You can go ahead and explore the traces and its spans. 
 
@@ -259,9 +259,9 @@ After the updates, test out your configuration by running this command:
 ` docker compose up` 
 
 Check your x-ray container logs to make sure logs were successfully sent to AWS X-ray.
-![Image of CLI Container logs](assets/CLI-container-logs)
+![Image of CLI Container logs](assets/CLI-container-logs.png)
 
-![Image of Console Container logs](assets/console-container-logs)
+![Image of Console Container logs](assets/console-container-logs.png)
 
 
 ### 6. Create a custom segment and subsegment with AWS X-ray
