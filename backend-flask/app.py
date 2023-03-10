@@ -170,8 +170,10 @@ def data_home():
     app.logger.debug(e)
     app.logger.debug("unauthenicated")
 
+  data = HomeActivities.run()
+
   # CloudWatch
-  data = HomeActivities.run(logger=LOGGER)
+  # data = HomeActivities.run(logger=LOGGER)
   return data, 200
 
 @app.route("/api/activities/notifications", methods=['GET'])
