@@ -46,7 +46,7 @@ We will be using the AWS console to set up our Cognito User Pool. First things f
 
 - In the `Required attributes` section, add some additional required attributes - `name` and `preferred_username`. 
 
-**Note:Required attributes can't be changed once this user pool has been created.**
+**Note: Required attributes can't be changed once this user pool has been created.**
 
 The `custom attributes` are optional to set since we will be using a database to store our data. Click **Next**
 
@@ -221,7 +221,7 @@ If you are encountering some error, follow the instructions below to resolve the
 
 **Troubleshooting**
 
-If on initial start-up of your frontend application, you got a blank page and an error in your console like the image below. 
+- If on initial start-up of your frontend application, you got a blank page and an error in your console like the image below. 
 
 ![Image of UserPoolId and ClientId Error](assets/userpoolID-clientID-error.png)
 
@@ -321,6 +321,7 @@ Try signing in to your frontend and see if you get any errors. If you do, you ar
 
 
 **Troubleshooting**
+
 If you got the error message `Incorrect username or password` in your debug page instead of the UI, go ahead into your `frontend-react-js/src/pages/SignInPage.js` file and make these adjustments to correct the error display. 
 
 ```js
@@ -349,6 +350,7 @@ After the code adjustments, refresh your frontend and try logging in with fake c
 
 
 **Testing**
+
 Now let's test our application with a real user. We will be creating our first user through the AWS console. 
 
 - In the AWS console, navigate to **Cognito** where we created the user pool. Under the `User` tab, click the `Create user` button to create a user. 
@@ -366,6 +368,7 @@ If while trying to log in with the newly created credentials and you get an erro
 ![Image of User SignIn Error](assets/user-signin-error.png)
 
 *Troubleshooting*
+
 Let's fix that `accessToken` error. In your **Terminal** run the following command:
 
 ```bash
@@ -398,7 +401,7 @@ To change the display name `My Name` and `@handle` to a name of your choice, do 
 
 Let's configure our SignUp page. Before that, let’s go ahead to disable and delete the created user from the AWS UI. 
 
-Select the user; then you should see this screen. Go ahead and `Disable user access` and then `Delete`.
+- Select the user; then you should see this screen. Go ahead and `Disable user access` and then `Delete`.
 
 ![Image of Deleted User](assets/deleted-user.png)
 
@@ -512,6 +515,7 @@ After spin up, try signing up. There should be an error message in your debig pa
 ![Image of SignUp Error](assets/signup-error.png)
 
 **Troubleshooting**
+
 If you are getting the above error, it is because we checked the wrong box while creating our user pool in Cognito. Go ahead and recreate the user pool, this time, ensure not BOTH boxes are checked. 
 
 ![Image of Cognito New UserPool Creation](assets/cognito-new-userpool-creation.png)
@@ -635,6 +639,7 @@ We need to pass our `accessToken` that is stored in `localStorage`.
 ```
 
 **Fix CORS**
+
 Replace our previous `cors` configuration with the following lines of code:
 
 ```py
