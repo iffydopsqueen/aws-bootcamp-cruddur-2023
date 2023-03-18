@@ -1,0 +1,12 @@
+#! /usr/bin/bash
+set -e # exit if there's an error
+
+NO_DB_CONNECTION_URL=$(sed 's/\/cruddur//g' <<<"$CONNECTION_URL")
+
+# drop the database
+psql $NO_DB_CONNECTION_URL -c "DROP database cruddur;"
+
+RED="\e[31m"
+NO_COLOR="\e[0m"
+
+echo -e "${RED}Dropped database ${NO_COLOR}"
