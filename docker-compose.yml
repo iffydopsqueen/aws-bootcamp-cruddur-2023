@@ -3,7 +3,7 @@ services:
   backend-flask:
     environment:
       # postgres (dev) connection 
-      CONNECTION_URL: ${CONNECTION_URL}
+      CONNECTION_URL: postgresql://postgres:password@db:5432/cruddur
       # RDS (prd) connection
       #PRD_CONNECTION_URL: ${PRD_CONNECTION_URL}
 
