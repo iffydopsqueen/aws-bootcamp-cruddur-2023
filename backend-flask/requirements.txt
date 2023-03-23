@@ -20,3 +20,7 @@ rollbar
 
 # Cognito
 Flask-AWSCognito
+
+# Postgres Driver
+psycopg[binary]
+psycopg[pool]
