@@ -5,6 +5,7 @@ services:
       # postgres (dev) connection 
       # CONNECTION_URL: postgresql://postgres:password@db:5432/cruddur
       # RDS (prd) connection
+      # PRD_CONNECTION_URL: postgresql://cruddurroot:MYpassword789@cruddur-db-instance.czjzrowps8l0.us-west-2.rds.amazonaws.com:5432/cruddur
       PRD_CONNECTION_URL: ${PRD_CONNECTION_URL}
 
       FRONTEND_URL: "https://3000-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}"

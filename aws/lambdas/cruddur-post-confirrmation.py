@@ -14,24 +14,15 @@ def lambda_handler(event, context):
     try:
       print('entered-try')
       sql = f"""
-         INSERT INTO public.users (
+        INSERT INTO public.users (
           display_name, 
           email,
           handle, 
           cognito_user_id
           ) 
-        VALUES(%s,%s,%s,%s)
-
-        /* use either one
-        VALUES (
-        '{user_display_name}'
-        '{user_email}'
-        '{user_handle}'
-        '{user_cognito_id}'
-        )
-        */
-
+        VALUES(%s, %s, %s, %s)
       """
+
       print('SQL Statement ----')
       print(sql)
       conn = psycopg2.connect(os.getenv('CONNECTION_URL'))
@@ -49,7 +40,7 @@ def lambda_handler(event, context):
       print(error)
     finally:
       if conn is not None:
-          cur.close()
-          conn.close()
-          print('Database connection closed.')
+        cur.close()
+        conn.close()
+        print('Database connection closed.')
     return event
