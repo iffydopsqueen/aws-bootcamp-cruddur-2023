@@ -2,8 +2,15 @@ version: "3.8"
 services:
   backend-flask:
     environment:
+      # postgres (dev) connection 
+      # CONNECTION_URL: postgresql://postgres:password@db:5432/cruddur
+
+      # RDS (prd) connection
+      CONNECTION_URL: "${PRD_CONNECTION_URL}"
+
       FRONTEND_URL: "https://3000-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}"
       BACKEND_URL: "https://4567-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}"
+      
       # honeycomb env variables
       OTEL_SERVICE_NAME: 'backend-flask'
       OTEL_EXPORTER_OTLP_ENDPOINT: "https://api.honeycomb.io"

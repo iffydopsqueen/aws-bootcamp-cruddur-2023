@@ -1,0 +1,18 @@
+#! /usr/bin/bash
+
+# Make our prints a lot nicer 
+CYAN='\033[1;36m'
+RED="\e[31m"
+NO_COLOR='\033[0m'
+LABEL="Seeding data..." 
+printf "${CYAN}== ${LABEL}${NO_COLOR}\n"
+
+# conditional statement for connection
+if [ "$1" = "prd" ]; then
+  echo -e "${RED}Running in production mode${NO_COLOR}"
+  URL=$PRD_CONNECTION_URL
+else
+  URL=$CONNECTION_URL
+fi
+
+psql $URL cruddur < backend-flask/db/seed.sql
