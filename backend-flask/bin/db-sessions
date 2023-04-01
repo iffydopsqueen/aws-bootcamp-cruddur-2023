@@ -10,7 +10,7 @@ printf "${CYAN}== ${LABEL}${NO_COLOR}\n"
 # conditional statement for connection
 if [ "$1" = "prd" ]; then
   echo -e "${RED}Running in production mode${NO_COLOR}"
-  URL=$PROD_CONNECTION_URL
+  URL=$PRD_CONNECTION_URL
 else
   URL=$CONNECTION_URL
 fi

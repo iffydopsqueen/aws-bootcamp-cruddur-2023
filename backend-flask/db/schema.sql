@@ -27,7 +27,7 @@ DROP TABLE IF EXISTS public.activities;
 -- create a table called "activities"
 CREATE TABLE public.activities (
   uuid UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_uuid UUID NOT NULL,
+  user_uuid UUID,
   message text NOT NULL,
   replies_count integer DEFAULT 0,
   reposts_count integer DEFAULT 0,
