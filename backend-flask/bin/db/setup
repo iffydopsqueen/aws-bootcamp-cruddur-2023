@@ -13,4 +13,7 @@ source "$bin_path/drop"
 source "$bin_path/create"
 source "$bin_path/schema-load"
 source "$bin_path/seed"
-source "$bin_path/update_cognito_user_ids"
+
+# source "$bin_path/update_cognito_user_ids"
+# "update_cognito_user_ids" is a python script
+python "$bin_path/update_cognito_user_ids"
