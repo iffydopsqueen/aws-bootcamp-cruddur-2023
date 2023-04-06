@@ -25,7 +25,7 @@ tasks:
     # update RDS security group rule with new gitpod IP
     command: |
       export GITPOD_IP=$(curl ifconfig.me)
-      source "$THEIA_WORKSPACE_ROOT/backend-flask/bin/rds-update-sg-rule"
+      source "$THEIA_WORKSPACE_ROOT/backend-flask/bin/db/update-sg-rule"
 
 vscode:
   extensions:
