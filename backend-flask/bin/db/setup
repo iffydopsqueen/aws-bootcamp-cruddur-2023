@@ -7,9 +7,9 @@ NO_COLOR='\033[0m'
 LABEL="Setting up database..."  
 printf "${CYAN}=== ${LABEL}${NO_COLOR}\n"
 
-bin_path="$(realpath .)/backend-flask/bin"
+bin_path="$(realpath .)/backend-flask/bin/db"
 
-source "$bin_path/db-drop"
-source "$bin_path/db-create"
-source "$bin_path/db-schema-load"
-source "$bin_path/db-seed"
+source "$bin_path/drop"
+source "$bin_path/create"
+source "$bin_path/schema-load"
+source "$bin_path/seed"

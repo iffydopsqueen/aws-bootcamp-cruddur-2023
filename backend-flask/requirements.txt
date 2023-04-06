@@ -24,3 +24,6 @@ Flask-AWSCognito
 # Postgres Driver
 psycopg[binary]
 psycopg[pool]
+
+# Boto3
+boto3
