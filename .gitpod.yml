@@ -9,12 +9,15 @@ tasks:
       sudo ./aws/install
       cd $THEIA_WORKSPACE_ROOT
 
-  - name: Initialize Frontend and Backend
-    init: |
+  - name: Frontend (react-js)
+    command: |
+      cd /workspace/aws-bootcamp-cruddur-2023/frontend-react-js
+      npm i  
+
+  - name: Backend (flask)
+    command: |
       cd /workspace/aws-bootcamp-cruddur-2023/backend-flask
       pip3 install -r requirements.txt
-      cd /workspace/aws-bootcamp-cruddur-2023/frontend-react-js
-      npm i   
 
   - name: postgres
     init: |
@@ -22,6 +25,7 @@ tasks:
       echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |sudo tee  /etc/apt/sources.list.d/pgdg.list
       sudo apt update
       sudo apt install -y postgresql-client-13 libpq-dev
+    
     # update RDS security group rule with new gitpod IP
     command: |
       export GITPOD_IP=$(curl ifconfig.me)
@@ -37,9 +41,11 @@ ports:
     port: 3000
     onOpen: open-browser
     visibility: public
+
   - name: backend
     port: 4567
     visibility: public
+    
   - name: x-ray
     port: 2000
     visibility: public
