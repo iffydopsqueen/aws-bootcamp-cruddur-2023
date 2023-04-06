@@ -35,10 +35,10 @@ def get_user_uuids():
   """
   users = db.query_array_json(sql,{
     'my_handle':  'gee_warrior',        # based on data in your seed.sql file
-    'other_handle': 'godofthunder'      # based on data in your seed.sql file
+    'other_handle': 'yah_king'      # based on data in your seed.sql file
   })
   my_user    = next((item for item in users if item["handle"] == 'gee_warrior'), None)
-  other_user = next((item for item in users if item["handle"] == 'godofthunder'), None)
+  other_user = next((item for item in users if item["handle"] == 'yah_king'), None)
   results = {
     'my_user': my_user,
     'other_user': other_user
