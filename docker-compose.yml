@@ -4,7 +4,7 @@ services:
     environment:
       # dynamodb-local endpoint
       AWS_ENDPOINT_URL: "http://dynamodb-local:8000"
-      
+
       # postgres (dev) connection 
       # CONNECTION_URL: postgresql://postgres:password@db:5432/cruddur
 
@@ -30,7 +30,7 @@ services:
       ROLLBAR_ACCESS_TOKEN: "${ROLLBAR_ACCESS_TOKEN}"
 
       # Cognito
-      AWS_COGNITO_USER_POOL_ID: "${REACT_APP_AWS_USER_POOLS_ID}"
+      AWS_COGNITO_USER_POOL_ID: "${AWS_COGNITO_USER_POOL_ID}"
       AWS_COGNITO_USER_POOL_CLIENT_ID: "${REACT_APP_CLIENT_ID}"
 
     build: ./backend-flask
