@@ -108,7 +108,8 @@ class Ddb:
       'created_at': created_at
     }
 
-  """def create_message_group(client, message,my_user_uuid, my_user_display_name, my_user_handle, other_user_uuid, other_user_display_name, other_user_handle):
+  # create a new message for a new msg grp
+  def create_message_group(client, message,my_user_uuid, my_user_display_name, my_user_handle, other_user_uuid, other_user_display_name, other_user_handle):
     print('== create_message_group.1')
     table_name = 'cruddur-messages'
 
@@ -168,4 +169,4 @@ class Ddb:
       }
     except botocore.exceptions.ClientError as e:
       print('== create_message_group.error')
-      print(e)"""
+      print(e)

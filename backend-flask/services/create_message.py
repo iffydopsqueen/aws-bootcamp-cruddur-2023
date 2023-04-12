@@ -68,7 +68,7 @@ class CreateMessage:
           my_user_display_name=my_user['display_name'],
           my_user_handle=my_user['handle']
         )
-      """elif (mode == "create"):
+      elif (mode == "create"):
         data = Ddb.create_message_group(
           client=ddb,
           message=message,
@@ -78,6 +78,6 @@ class CreateMessage:
           other_user_uuid=other_user['uuid'],
           other_user_display_name=other_user['display_name'],
           other_user_handle=other_user['handle']
-        )"""
+        )
       model['data'] = data
     return model
