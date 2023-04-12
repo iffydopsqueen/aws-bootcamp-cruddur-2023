@@ -229,8 +229,13 @@ for i in range(len(lines)):
   else:
     print(lines[i])
     raise 'invalid line'
+  
+  # the commented code was causing a negative time for me
+  #created_at = (now + timedelta(minutes=i)).isoformat()
 
-  created_at = (now + timedelta(minutes=i)).isoformat()
+  # this delays the time by 3 hours 
+  created_at = (now + timedelta(hours=-3) + timedelta(minutes=i)).isoformat() 
+
   create_message(
     client=ddb,
     message_group_uuid=message_group_uuid,
