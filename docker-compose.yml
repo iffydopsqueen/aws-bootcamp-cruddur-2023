@@ -3,7 +3,8 @@ services:
   backend-flask:
     environment:
       # dynamodb-local endpoint
-      AWS_ENDPOINT_URL: "http://dynamodb-local:8000"
+      # AWS_ENDPOINT_URL: "http://dynamodb-local:8000"
+      # we comment it out so we can use prd details
 
       # postgres (dev) connection 
       CONNECTION_URL: postgresql://postgres:password@db:5432/cruddur
