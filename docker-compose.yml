@@ -2,11 +2,15 @@ version: "3.8"
 services:
   backend-flask:
     environment:
+      # dynamodb-local endpoint
+      # AWS_ENDPOINT_URL: "http://dynamodb-local:8000"
+      # we comment it out so we can use prd details
+
       # postgres (dev) connection 
-      # CONNECTION_URL: postgresql://postgres:password@db:5432/cruddur
+      CONNECTION_URL: postgresql://postgres:password@db:5432/cruddur
 
       # RDS (prd) connection
-      CONNECTION_URL: "${PRD_CONNECTION_URL}"
+      # CONNECTION_URL: "${PRD_CONNECTION_URL}"
 
       FRONTEND_URL: "https://3000-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}"
       BACKEND_URL: "https://4567-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}"
@@ -27,7 +31,7 @@ services:
       ROLLBAR_ACCESS_TOKEN: "${ROLLBAR_ACCESS_TOKEN}"
 
       # Cognito
-      AWS_COGNITO_USER_POOL_ID: "${REACT_APP_AWS_USER_POOLS_ID}"
+      AWS_COGNITO_USER_POOL_ID: "${AWS_COGNITO_USER_POOL_ID}"
       AWS_COGNITO_USER_POOL_CLIENT_ID: "${REACT_APP_CLIENT_ID}"
 
     build: ./backend-flask
