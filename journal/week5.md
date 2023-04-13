@@ -1214,26 +1214,843 @@ def data_message_groups():
 
 ### 5. Access Patterns Implementation - Implementing Patterns A & B
 
+In pattern A, we will be listing messages in a message group and pattern B will just be listing message groups. 
 
+The original content of the `message_groups.py` file returned `MOCK` data, but now it returns actual data from DynamoDB.
 
-<details><summary>Solution</summary>
+The `list_message_groups` function is quite similar to the `list-conversations` script that was created earlier. The only difference is that it doesn't simply dump JSON but iterates through the items.
+
+<details><summary>Implementating Pattern A</summary>
 <p>
 
+Go ahead into your `backend-flask/services/message_groups.py` file, and add the following content:
+```python
+# DELETE THESE
+class MessageGroups:
+  def run(user_handle):
+    model = {
+      'errors': None,
+      'data': None
+    }
+
+    now = datetime.now(timezone.utc).astimezone()
+    results = [
+      {
+        'uuid': '24b95582-9e7b-4e0a-9ad1-639773ab7552',
+        'display_name': 'Andrew Brown',
+        'handle':  'andrewbrown',
+        'created_at': now.isoformat()
+      },
+      {
+        'uuid': '417c360e-c4e6-4fce-873b-d2d71469b4ac',
+        'display_name': 'Worf',
+        'handle':  'worf',
+        'created_at': now.isoformat()
+    }]
+    model['data'] = results
+    return model
+
+# ADD THESE 
+from lib.ddb import Ddb
+from lib.db import db
+
+class MessageGroups:
+  def run(cognito_user_id):
+    model = {
+      'errors': None,
+      'data': None
+    }
+
+    sql = db.template('users','uuid_from_cognito_user_id')
+    my_user_uuid = db.query_value(sql,{
+      'cognito_user_id': cognito_user_id
+    })
+
+    print(f"UUID: {my_user_uuid}")
+
+    ddb = Ddb.client()
+    data = Ddb.list_message_groups(ddb, my_user_uuid)
+    print("list_message_groups:",data)
+
+    model['data'] = data
+    return model
+```
+  
+Now, in our `backend-flask/db/sql/` folder, we will be creating another folder `users` and `uuid_from_cognito_user_id.sql` file inside the newly created folder.
+  
+```bash
+# create directory 
+mkdir backend-flask/db/sql/users
+
+# create file 
+touch backend-flask/db/sql/users/uuid_from_cognito_user_id.sql
+```
+  
+Add the following content to the file:
+```sql
+  SELECT
+  users.uuid
+FROM public.users
+WHERE 
+  users.cognito_user_id = %(cognito_user_id)s
+LIMIT 1
+```
+  
+After the above configurations, if you try to start up your `frontend` application, you will encounter a `Cookies` and `token authorization` error which can be fixed by following the steps below.
+
+<details><summary>Fix Cookies and token authorization</summary>
+<p>
+
+In your `frontend-react-js/src/pages/HomeFeedPage.js` file, make the following code changes:
+
+```js
+// DELETE THIS 
+// [TODO] Authenication
+import Cookies from 'js-cookie'
+```
+
+In your `frontend-react-js/src/`, create a dircetory `/lib/` with a file `CheckAuth.js`
+
+```bash
+# create lib directory
+mkdir frontend-react-js/src/lib
+
+# create file 
+touch frontend-react-js/src/lib/CheckAuth.js
+```
+
+Add the following content to the file:
+```js
+import { Auth } from 'aws-amplify';
+
+const checkAuth = async (setUser) => {
+  Auth.currentAuthenticatedUser({
+    // Optional, By default is false. 
+    // If set to true, this call will send a 
+    // request to Cognito to get the latest user data
+    bypassCache: false 
+  })
+  .then((user) => {
+    console.log('user',user);
+    return Auth.currentAuthenticatedUser()
+  }).then((cognito_user) => {
+      setUser({
+        display_name: cognito_user.attributes.name,
+        handle: cognito_user.attributes.preferred_username
+      })
+  })
+  .catch((err) => console.log(err));
+};
+
+export default checkAuth;
+
+
+// DELETE THESE from HomeFeedPage.js
+const checkAuth = async () => {
+    console.log('checkAuth')
+    // [TODO] Authenication
+    if (Cookies.get('user.logged_in')) {
+      setUser({
+        display_name: Cookies.get('user.name'),
+        handle: Cookies.get('user.username')
+      })
+    }
+  };
+
+  
+// ADD THESE to HomeFeedPage.js
+import DesktopNavigation  from '../components/DesktopNavigation';
+import DesktopSidebar     from '../components/DesktopSidebar';
+import ActivityFeed from '../components/ActivityFeed';
+import ActivityForm from '../components/ActivityForm';
+import ReplyForm from '../components/ReplyForm';
+import checkAuth from '../lib/CheckAuth';
+
+// change this 
+checkAuth();
+  
+// to this 
+checkAuth(setUser);
+```
+  
+Now let's make some changes to handle our token authorization problems. 
+  
+Make the following changes to your `frontend-react-js/src/pages/MessageGroupsPage.js`, `frontend-react-js/src/pages/MessageGroupPage.js` and `frontend-react-js/src/components/MessageForm.js` files:
+
+```js
+  
+// DELETE THIS 
+// [TODO] Authenication
+import Cookies from 'js-cookie'
+
+// DELETE THESE from MessageGroupsPage.js & MessageGroupPage.js
+const checkAuth = async () => {
+    console.log('checkAuth')
+    // [TODO] Authenication
+    if (Cookies.get('user.logged_in')) {
+      setUser({
+        display_name: Cookies.get('user.name'),
+        handle: Cookies.get('user.username')
+      })
+    }
+  };
+
+  
+// change this in each files
+checkAuth();
+  
+// to this 
+checkAuth(setUser);
+
+
+// ADD THESE
+import checkAuth from '../lib/CheckAuth';
+
+// MAKE SURE YOU ADD ALL THESE HEADERS TO THE MENTIONED FILES 
+// check HomeFeedPage.js for proper indentation
+// in the "const" section of each file - "MessageGroupsPage.js" & "MessageGroupPage.js"
+  
+headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`
+        },
+
+// this is how the "MessageForm" file will look like after the changes
+
+headers: {
+          'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+```
+  
+Let's test out our configurations. If there are no messages showing up in your `frontend` UI, use the ***troubleshooting*** section to resolve the problem.
+  
+<details><summary>Troubleshooting</summary>
+<p>
+Run the following commands to resolve the error:
+```bash
+# confirm table doesn't already exist
+./backend-flask/bin/ddb/list-tables
+
+# run the schema load script if table DOES NOT EXIST
+./backend-flask/bin/ddb/schema-load
+
+# set up postgres DB 
+./backend-flask/bin/db/setup
+
+# seed the DB
+./backend-flask/bin/ddb/seed
+```
+  
+If nothing is still showing up, run this command below to be sure that any record is actually returned. 
+
+```bash
+./backend-flask/bin/ddb/patterns/list-conversations
+```
+
+If it shows that a record is being returned, but we are just not able to view it on our UI due to this error, go ahead and continue to resolve it. 
+  
+![Image of Message Group 401 Error](assets/msg-grp-401-error.png)
+  
+1. Make sure you have the `headers` set properly in each of these files: `frontend-react-js/src/pages/MessageGroupsPage.js` and  `frontend-react-js/src/pages/MessageGroupPage.js`.
+  
+If the error persists and now it is a `500` error. Check your DB and confirm if the `cognito_user_ids` are correctly populated or still says `MOCK`. If you still have `MOCK` showing up, exit from DB and run the commands below:
+  
+```bash
+# connect to DB 
+./backend-flask/bin/db/connect
+
+# check inside DB if "cognito_user_ids" are correctly populated 
+\x
+SELECT * FROM USERS;
+
+# repopulate them
+./backend-flask/bin/db/update_cognito_user_ids
+
+# check back your DB and you should have the correct IDs now
+```
+  
+You should refresh your UI and see this page 
+![Image of Successful Message Grp Display](assets/successful-msg-grp-display.png)
+  
+And when you click on the user, you should see this screen
+![Image of Clicked User Display in Messages](assets/clicked-user-display-in-msg.png)
+</p>
+</details>
+  
+</p>
+</details>
+  
 </p>
 </details>
 
-
-### 6. Access Patterns Implementation - 
-
-<details><summary>Solution</summary>
+<details><summary>Implementating Pattern B</summary>
 <p>
 
+In `frontend-react-js/src/App.js` file, make the following changes:
+
+```js
+// under "path: "/messages"" section, add this below it
+  {
+    path: "/messages/:message_group_uuid",
+    element: <MessageGroupPage />
+  },
+```
+
+Now go into `frontend-react-js/src/pages/MessageGroupPage.js` file and make the following changes:
+
+```js
+// delete this line
+const handle = `@${params.handle}`;
+
+// change this line 
+const backend_url = `${process.env.REACT_APP_BACKEND_URL}/api/messages/${handle}`
+
+// to this 
+const backend_url = `${process.env.REACT_APP_BACKEND_URL}/api/messages/${params.message_group_uuid}`
+```
+
+In `frontend-react-js/src/components/MessageGroupItem.js` file, edit this line of code:
+  
+```js
+// change "+props.message_group.handle" with this 
+{`/messages/`+props.message_group.uuid}> 
+
+// change "if (params.handle == props.message_group.handle)" with this
+if (params.message_group_uuid == props.message_group.uuid)
+```
+  
+After the modifications, log in and see if you are encountering any errors. If you are encountering this error, follow the steps below to resolve it.
+  
+![Image of classsName Error](assets/classs-name-error.png)
+  
+**Resolve**
+
+Go into these files and change `classsName` to `className`
+
+```bash
+# files to check
+MessageItem.js
+MessageGroupItem.js
+```
+
+After the changes, log in as a user and see if any message is showing up. 
+
+Make sure that when you click on the message, nothing is meant to be populated on your right like so.
+  
+![Image of Successful Message Empty Display](assets/successful-msg-empty-display.png)
+  
+
+**Continue Configuration**
+  
+In your `backend-flask/app.py` file, make the following changes:
+
+```python
+# delete these lines
+@app.route("/api/messages/@<string:handle>", methods=['GET'])
+def data_messages(handle):
+  user_sender_handle = 'andrewbrown'
+  user_receiver_handle = request.args.get('user_reciever_handle')
+
+  model = Messages.run(user_sender_handle=user_sender_handle, user_receiver_handle=user_receiver_handle)
+  if model['errors'] is not None:
+    return model['errors'], 422
+  else:
+    return model['data'], 200
+  return
+
+@app.route("/api/messages", methods=['POST','OPTIONS'])
+@cross_origin()
+def data_create_message():
+  user_sender_handle = 'andrewbrown'
+  user_receiver_handle = request.json['user_receiver_handle']
+  message = request.json['message']
+
+  model = CreateMessage.run(message=message,user_sender_handle=user_sender_handle,user_receiver_handle=user_receiver_handle)
+  if model['errors'] is not None:
+    return model['errors'], 422
+  else:
+    return model['data'], 200
+  return
+
+
+# add these lines
+@app.route("/api/messages/<string:message_group_uuid>", methods=['GET'])
+def data_messages(message_group_uuid):
+  access_token = extract_access_token(request.headers)
+  try:
+    claims = cognito_jwt_token.verify(access_token)
+    # authenicatied request
+    app.logger.debug("authenicated")
+    app.logger.debug(claims)
+    cognito_user_id = claims['sub']
+    model = Messages.run(
+        cognito_user_id=cognito_user_id,
+        message_group_uuid=message_group_uuid
+      )
+    if model['errors'] is not None:
+      return model['errors'], 422
+    else:
+      return model['data'], 200
+  except TokenVerifyError as e:
+    # unauthenicatied request
+    app.logger.debug(e)
+    return {}, 401
+
+@app.route("/api/messages", methods=['POST','OPTIONS'])
+@cross_origin()
+def data_create_message():
+  message_group_uuid   = request.json.get('message_group_uuid',None)
+  user_receiver_handle = request.json.get('handle',None)
+  message = request.json['message']
+  access_token = extract_access_token(request.headers)
+  try:
+    claims = cognito_jwt_token.verify(access_token)
+    # authenicatied request
+    app.logger.debug("authenicated")
+    app.logger.debug(claims)
+    cognito_user_id = claims['sub']
+    if message_group_uuid == None:
+      # Create for the first time
+      model = CreateMessage.run(
+        mode="create",
+        message=message,
+        cognito_user_id=cognito_user_id,
+        user_receiver_handle=user_receiver_handle
+      )
+    else:
+      # Push onto existing Message Group
+      model = CreateMessage.run(
+        mode="update",
+        message=message,
+        message_group_uuid=message_group_uuid,
+        cognito_user_id=cognito_user_id
+      )
+    if model['errors'] is not None:
+      return model['errors'], 422
+    else:
+      return model['data'], 200
+  except TokenVerifyError as e:
+    # unauthenicatied request
+    app.logger.debug(e)
+    return {}, 401
+```
+  
+For the `backend-flask/services/messages.py` file, make the following changes:
+  
+```python
+from datetime import datetime, timedelta, timezone
+from lib.ddb import Ddb
+from lib.db import db
+
+class Messages:
+  def run(message_group_uuid,cognito_user_id):
+    model = {
+      'errors': None,
+      'data': None
+    }
+
+    sql = db.template('users','uuid_from_cognito_user_id')
+    my_user_uuid = db.query_value(sql,{
+      'cognito_user_id': cognito_user_id
+    })
+
+    print(f"UUID: {my_user_uuid}")
+
+    ddb = Ddb.client()
+    data = Ddb.list_messages(ddb, message_group_uuid)
+    print("list_messages")
+    print(data)
+
+    model['data'] = data
+    return model
+```
+  
+Now, go into your `frontend-react-js/src/pages/MessageGroupPage.js` file and add another `header` authorization for the `loadMessageGroupData` section.
+  
+```js
+// add this in the "const loadMessageGroupData" section
+headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`
+        },
+```
+  
+Now try logging back in if your token hasn't expired yet. 
+  
+![Image of Successful Listing of Message Grps](assets/successfully-listing-msg-grps.png)
+  
+</p>
+</details>
+  
+  
+
+### 6. Access Patterns Implementation - Implementing Pattern C
+
+In Pattern C, we will be creating a message for an existing message group. 
+
+The first step is to modify `MessageForm.js` in the `frontend`, which is used for sending messages. We added codes for two scenarios. 
+- If a user is starting a brand new conversation, there won’t be any `message_group_uuid`, which means a `handle` will be used. 
+- If a `handle` is present, a brand new message group is created; otherwise, the message is added to an existing message group.
+  
+<details><summary>Implementattion</summary>
+<p>
+
+In your `frontend-react-js/src/components/MessageForm.js` file, make the following changes:
+
+```js
+// delete these
+const onsubmit = async (event) => {
+    event.preventDefault();
+    try {
+      const backend_url = `${process.env.REACT_APP_BACKEND_URL}/api/messages`
+      console.log('onsubmit payload', message)
+      const res = await fetch(backend_url, {
+        method: "POST",
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: message,
+          user_receiver_handle: params.handle
+        }),
+      });
+      let data = await res.json();
+      if (res.status === 200) {
+        props.setMessages(current => [...current,data]);
+      } else {
+        console.log(res)
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+// add these 
+const onsubmit = async (event) => {
+    event.preventDefault();
+    try {
+      const backend_url = `${process.env.REACT_APP_BACKEND_URL}/api/messages`
+      console.log('onsubmit payload', message)
+      let json = { 'message': message }
+      if (params.handle) {
+        json.handle = params.handle
+      } else {
+        json.message_group_uuid = params.message_group_uuid
+      }
+
+      const res = await fetch(backend_url, {
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(json)
+      });
+      let data = await res.json();
+      if (res.status === 200) {
+        console.log('data:',data)
+        if (data.message_group_uuid) {
+          console.log('redirect to message group')
+          window.location.href = `/messages/${data.message_group_uuid}`
+        } else {
+          props.setMessages(current => [...current,data]);
+        }
+      } else {
+        console.log(res)
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+```
+
+In the backend, the function `data_create_message` in `app.py` has to be modified with the following code below. As the application is not using hardcoded data anymore, it was changed to use `message_group_uuid` and `cognito_user_ids`. 
+
+A conditional statement was added for two purposes.
+- To create a brand new message and/or 
+- To push a message to an existing message group (updating the message group).
+
+In `app.py` make the following changes:
+```python
+
+# replace this "@app.route("/api/messages", methods=['POST',..." 
+# section with this 
+@app.route("/api/messages", methods=['POST','OPTIONS'])
+@cross_origin()
+def data_create_message():
+  message_group_uuid   = request.json.get('message_group_uuid',None)
+  user_receiver_handle = request.json.get('handle',None)
+  message = request.json['message']
+  access_token = extract_access_token(request.headers)
+  try:
+    claims = cognito_jwt_token.verify(access_token)
+    # authenicatied request
+    app.logger.debug("authenicated")
+    app.logger.debug(claims)
+    cognito_user_id = claims['sub']
+    if message_group_uuid == None:
+      # Create for the first time
+      model = CreateMessage.run(
+        mode="create",
+        message=message,
+        cognito_user_id=cognito_user_id,
+        user_receiver_handle=user_receiver_handle
+      )
+    else:
+      # Push onto existing Message Group
+      model = CreateMessage.run(
+        mode="update",
+        message=message,
+        message_group_uuid=message_group_uuid,
+        cognito_user_id=cognito_user_id
+      )
+    if model['errors'] is not None:
+      return model['errors'], 422
+    else:
+      return model['data'], 200
+  except TokenVerifyError as e:
+    # unauthenicatied request
+    app.logger.debug(e)
+    return {}, 401
+```
+  
+Now we add a `CreateMessage` class with 2 modes:
+- `update` mode and,
+- `create` mode
+
+In your `backend-flask/services/create_message.py` file, make the following changes: 
+
+```python
+from datetime import datetime, timedelta, timezone
+
+from lib.db import db
+from lib.ddb import Ddb
+
+class CreateMessage:
+  # mode indicates if we want to create a new message_group or use an existing one
+  def run(mode, message, cognito_user_id, message_group_uuid=None, user_receiver_handle=None):
+    model = {
+      'errors': None,
+      'data': None
+    }
+
+    if (mode == "update"):
+      if message_group_uuid == None or len(message_group_uuid) < 1:
+        model['errors'] = ['message_group_uuid_blank']
+
+    if cognito_user_id == None or len(cognito_user_id) < 1:
+      model['errors'] = ['cognito_user_id_blank']
+
+    if (mode == "create"):
+      if user_receiver_handle == None or len(user_receiver_handle) < 1:
+        model['errors'] = ['user_reciever_handle_blank']
+
+    if message == None or len(message) < 1:
+      model['errors'] = ['message_blank'] 
+    elif len(message) > 1024:
+      model['errors'] = ['message_exceed_max_chars'] 
+
+    if model['errors']:
+      # return what we provided
+      model['data'] = {
+        'display_name': 'Gentle Warrior',
+        'handle':  user_sender_handle,
+        'message': message
+      }
+    else:
+      sql = db.template('users','create_message_users')
+
+      if user_receiver_handle == None:
+        rev_handle = ''
+      else:
+        rev_handle = user_receiver_handle
+      users = db.query_array_json(sql,{
+        'cognito_user_id': cognito_user_id,
+        'user_receiver_handle': rev_handle
+      })
+      print("USERS =-=-=-=-==")
+      print(users)
+
+      my_user    = next((item for item in users if item["kind"] == 'sender'), None)
+      other_user = next((item for item in users if item["kind"] == 'recv')  , None)
+
+      print("USERS=[my-user]==")
+      print(my_user)
+      print("USERS=[other-user]==")
+      print(other_user)
+
+      ddb = Ddb.client()
+
+      if (mode == "update"):
+        data = Ddb.create_message(
+          client=ddb,
+          message_group_uuid=message_group_uuid,
+          message=message,
+          my_user_uuid=my_user['uuid'],
+          my_user_display_name=my_user['display_name'],
+          my_user_handle=my_user['handle']
+        )
+      elif (mode == "create"):
+        data = Ddb.create_message_group(
+          client=ddb,
+          message=message,
+          my_user_uuid=my_user['uuid'],
+          my_user_display_name=my_user['display_name'],
+          my_user_handle=my_user['handle'],
+          other_user_uuid=other_user['uuid'],
+          other_user_display_name=other_user['display_name'],
+          other_user_handle=other_user['handle']
+        )
+      model['data'] = data
+    return model
+```
+
+Go ahead and add a new function `create_message` in the `ddb.py` file to insert the message into DynamoDB.
+
+```python
+
+ # create message in an existing msg grp
+  def create_message(client,message_group_uuid, message, my_user_uuid, my_user_display_name, my_user_handle):
+    now = datetime.now(timezone.utc).astimezone().isoformat()
+    created_at = now
+    message_uuid = str(uuid.uuid4())
+
+    record = {
+      'pk':   {'S': f"MSG#{message_group_uuid}"},
+      'sk':   {'S': created_at },
+      'message': {'S': message},
+      'message_uuid': {'S': message_uuid},
+      'user_uuid': {'S': my_user_uuid},
+      'user_display_name': {'S': my_user_display_name},
+      'user_handle': {'S': my_user_handle}
+    }
+    # insert the record into the table
+    table_name = 'cruddur-messages'
+    response = client.put_item(
+      TableName=table_name,
+      Item=record
+    )
+    # print the response
+    print(response)
+    return {
+      'message_group_uuid': message_group_uuid,
+      'uuid': my_user_uuid,
+      'display_name': my_user_display_name,
+      'handle':  my_user_handle,
+      'message': message,
+      'created_at': created_at
+    }
+```
+
+After that, create a file `create_message_users.sql` to get the user IDs from RDS to add to the messages. Now in your `backend-flask/db/sql/users` folder, create a file `create_message_users.sql` with the following contents:
+
+```bash
+# create file
+touch backend-flask/db/sql/users/create_message_users.sql
+```
+
+Content of `create_message_users.sql`
+
+```sql
+SELECT 
+  users.uuid,
+  users.display_name,
+  users.handle,
+  CASE users.cognito_user_id = %(cognito_user_id)s
+  WHEN TRUE THEN
+    'sender'
+  WHEN FALSE THEN
+    'recv'
+  ELSE
+    'other'
+  END as kind
+FROM public.users
+WHERE
+  users.cognito_user_id = %(cognito_user_id)s
+  OR 
+  users.handle = %(user_receiver_handle)s
+```
+
+After configuration, do a `docker compose up` again to refresh your token in the frontend UI.
+  
+**Note:** If there are no messages showing up, run these commands:
+```bash
+# confirm table doesn't already exist
+./backend-flask/bin/ddb/list-tables
+
+# run the schema load script if table DOES NOT EXIST
+./backend-flask/bin/ddb/schema-load
+
+# set up postgres DB 
+./backend-flask/bin/db/setup
+
+# seed the DB
+./backend-flask/bin/ddb/seed
+```
+  
+If nothing is still showing up, run this command below to be sure that any record is actually returned. 
+
+```bash
+./backend-flask/bin/ddb/patterns/list-conversations
+```
+
+If the error persists, check your DB and confirm if the `cognito_user_ids` are correctly populated or still say `MOCK`. If you still have `MOCK` showing up, exit from DB and run the commands below:
+
+```bash
+# connect to DB 
+./backend-flask/bin/db/connect
+
+# check inside DB if cognito_user_ids are correctly populated 
+\x
+SELECT * FROM USERS;
+
+# repopulate them
+./backend-flask/bin/db/update_cognito_user_ids
+
+# check back and you should have the correct IDs now
+```
+
+If afterwards, you are not still able to create a message for the existing message group. Add this line of code to your DynamoDB seed script, `../ddb/seed`.
+  
+```python
+# comment out or delete the previous one you have 
+# this configuration delays the time by 3 hours 
+  
+created_at = (now + timedelta(hours=-3) + timedelta(minutes=i)).isoformat()
+```
+  
+Then, drop your DynamoDB to recreate with new changes. 
+```bash
+./backend-flask/bin/ddb/drop cruddur-messages
+
+# to recreate table
+./backend-flask/bin/ddb/schema-load
+
+# confirm table exist
+./backend-flask/bin/ddb/list-tables
+
+# set up Postgres DB 
+./backend-flask/bin/db/setup
+
+# seed the DB
+./backend-flask/bin/ddb/seed
+```
+  
+Now try writing a message like so:
+![Image of Creating a Message in an existing Msg Grp](assets/create-msg-in-an-existing-msg-grp.png)
+  
 </p>
 </details>
 
-### 7. Access Patterns Implementation - 
+  
+  
+### 7. Access Patterns Implementation - Implementing Pattern D
 
-<details><summary>Solution</summary>
+In Pattern D, we will be creating a message for a new message group. We will start by adding a new URL to our `App.js` file
+  
+<details><summary>Implementation</summary>
 <p>
 
 </p>
