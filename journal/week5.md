@@ -12,6 +12,7 @@ We will need to install `boto3` libraries into our application.
 
 <details><summary>Install Boto3</summary>
 <p>
+  
 To install the `boto3` library onto our application, add the following line to your `backend-flask/requirements.txt` file:
 
 ```bash
@@ -23,11 +24,13 @@ pip install -r backend-flask/requirements.txt
 ```
 
 After the installation, start up your application by doing a `docker compose up`. This is required for us to be able to use our `dynamodb-local` we had installed the previous weeks. 
+  
 </p>
 </details>
 
 <details><summary>Files re-organization</summary>
 <p>
+  
 For our re-organization, let’s move our DB operations script to a folder `../bin/db/` and remove the `db-` prefix on those scripts since they will now be in a `db` folder. Also create a `../bin/rds/` folder to move the `rds-security-grp` file into there and don’t forget to remove the `rds-` prefix on the file as well. 
   
 ```bash
@@ -55,6 +58,7 @@ mv backend-flask/bin/rds-update-sg-rule backend-flask/bin/rds/update-sg-rule
 Now let’s make the corresponding changes to our files that referenced the old files we changed. 
 
 - In the setup script, change the path to reference the correct file:
+  
 ```bash
 # change these 
 bin_path="$(realpath .)/backend-flask/bin"
@@ -74,6 +78,7 @@ source "$bin_path/seed"
 ```
 
 Don’t forget to change the `security_group` path in your `gitpod.yml` file. Make these changes:
+  
 ```yaml
 # change this 
 source "$THEIA_WORKSPACE_ROOT/backend-flask/bin/rds-update-sg-rule"
@@ -81,6 +86,7 @@ source "$THEIA_WORKSPACE_ROOT/backend-flask/bin/rds-update-sg-rule"
 # to this 
 source "$THEIA_WORKSPACE_ROOT/backend-flask/bin/rds/update-sg-rule"
 ```
+  
 </p>
 </details>
 
@@ -200,6 +206,7 @@ chmod 555 backend-flask/bin/ddb/list-tables
 # execute the script 
 ./backend-flask/bin/ddb/list-tables
 ```
+  
 </p>
 </details>
 
@@ -255,6 +262,7 @@ chmod 555 backend-flask/bin/ddb/drop
 # execute the script 
 ./backend-flask/bin/ddb/drop cruddur-messages
 ```
+  
 </p>
 </details>
 
@@ -288,6 +296,7 @@ from lib.db import db
 attrs = {
   'endpoint_url': 'http://localhost:8000'
 }
+  
 # unset endpoint url for use with production database
 if len(sys.argv) == 2:
   if "prd" in sys.argv[1]:
@@ -529,6 +538,7 @@ chmod 555 backend-flask/bin/ddb/seed
 # execute the script 
 ./backend-flask/bin/ddb/seed
 ```
+  
 </p>
 </details>
 
@@ -578,6 +588,7 @@ chmod 555 backend-flask/bin/ddb/scan
 # execute the script 
 ./backend-flask/bin/ddb/scan
 ```  
+  
 </p>
 </details>
 
@@ -674,6 +685,7 @@ chmod 555 backend-flask/bin/ddb/patterns/get-conversation
 ```
 
 In your `/ddb/patterns/list-conversations` file, add the following:
+  
 ```python
 #!/usr/bin/env python3
 
@@ -751,6 +763,7 @@ chmod 555 backend-flask/bin/ddb/patterns/list-conversations
 
 <details><summary>Troubleshooting</summary>
 <p>
+  
 To avoid getting the `AttributeError: 'Db' object has no attribute 'query_value'` error, follow the steps below.
 
 Add to your `backend-flask/lib/db.py` file:
@@ -787,6 +800,7 @@ self.print_sql('array',sql,params)
 ```
 
 After the modifications, run this command again:
+  
 ```bash
 # list conversations
 ./backend-flask/bin/ddb/patterns/list-conversations
@@ -807,12 +821,14 @@ This should be our default page before any conversation implementation.
 To implement the access patterns for our conversations, we need to create a new file, `ddb.py` which is our DynamoDB library file.
   
 In `backend-flask/lib/` folder, create the file:
+  
 ```bash
 # create file
 touch backend-flask/lib/ddb.py
 ```
   
 Add the following contents to your file:
+  
 ```python
 import boto3
 import sys
@@ -998,6 +1014,7 @@ AWS_ENDPOINT_URL: "http://dynamodb-local:8000"
 
 # the dynamodb-local is the container name we gave it below the docker compose file
 ```
+  
 </p>
 </details>
 
@@ -1068,12 +1085,14 @@ chmod 555 backend-flask/bin/cognito/list-users
 ```
 
 To check if you can pull the data from `cognito` run the following command:
+  
 ```bash
 # list users in cognito
 aws cognito-idp list-users --user-pool-id=<USER_POOL_ID>
 ```
   
 Don’t forget to set your `cognito_user_pool_id` as an environment variable. Check if you have it already. 
+  
 ```bash
 export AWS_COGNITO_USER_POOL_ID="..."
 gp env AWS_COGNITO_USER_POOL_ID="..." 
@@ -1087,6 +1106,7 @@ touch backend-flask/bin/db/update_cognito_user_ids
 ```
 
 Add the following content to the created file:
+  
 ```python
 #!/usr/bin/env python3
 
@@ -1163,6 +1183,7 @@ python "$bin_path/update_cognito_user_ids"
 ```
 
 Also, in your `backend-flask/lib/db.py` file, edit this line of code to this:
+  
 ```bash
 # in the "def query_commit(self,sql,params={}):" section
 # add "params" as one of the arguments
@@ -1208,6 +1229,7 @@ def data_message_groups():
     app.logger.debug(e)
     return {}, 401
 ```
+  
 </p>
 </details>
 
@@ -1287,6 +1309,7 @@ touch backend-flask/db/sql/users/uuid_from_cognito_user_id.sql
 ```
   
 Add the following content to the file:
+  
 ```sql
   SELECT
   users.uuid
@@ -1320,6 +1343,7 @@ touch frontend-react-js/src/lib/CheckAuth.js
 ```
 
 Add the following content to the file:
+  
 ```js
 import { Auth } from 'aws-amplify';
 
@@ -1427,7 +1451,9 @@ Let's test out our configurations. If there are no messages showing up in your `
   
 <details><summary>Troubleshooting</summary>
 <p>
+  
 Run the following commands to resolve the error:
+  
 ```bash
 # confirm table doesn't already exist
 ./backend-flask/bin/ddb/list-tables
@@ -1471,10 +1497,13 @@ SELECT * FROM USERS;
 ```
   
 You should refresh your UI and see this page 
+  
 ![Image of Successful Message Grp Display](assets/successful-msg-grp-display.png)
   
 And when you click on the user, you should see this screen
+  
 ![Image of Clicked User Display in Messages](assets/clicked-user-display-in-msg.png)
+  
 </p>
 </details>
   
@@ -1769,10 +1798,12 @@ const onsubmit = async (event) => {
 In the backend, the function `data_create_message` in `app.py` has to be modified with the following code below. As the application is not using hardcoded data anymore, it was changed to use `message_group_uuid` and `cognito_user_ids`. 
 
 A conditional statement was added for two purposes.
+  
 - To create a brand new message and/or 
 - To push a message to an existing message group (updating the message group).
 
 In `app.py` make the following changes:
+  
 ```python
 
 # replace this "@app.route("/api/messages", methods=['POST',..." 
@@ -1817,6 +1848,7 @@ def data_create_message():
 ```
   
 Now we add a `CreateMessage` class with 2 modes:
+  
 - `update` mode and,
 - `create` mode
 
@@ -1976,6 +2008,7 @@ WHERE
 After configuration, do a `docker compose up` again to refresh your token in the frontend UI.
   
 **Note:** If there are no messages showing up, run these commands:
+  
 ```bash
 # confirm table doesn't already exist
 ./backend-flask/bin/ddb/list-tables
@@ -2022,6 +2055,7 @@ created_at = (now + timedelta(hours=-3) + timedelta(minutes=i)).isoformat()
 ```
   
 Then, drop your DynamoDB to recreate with new changes. 
+  
 ```bash
 ./backend-flask/bin/ddb/drop cruddur-messages
 
@@ -2039,47 +2073,764 @@ Then, drop your DynamoDB to recreate with new changes.
 ```
   
 Now try writing a message like so:
+  
 ![Image of Creating a Message in an existing Msg Grp](assets/create-msg-in-an-existing-msg-grp.png)
   
 </p>
 </details>
 
   
-  
 ### 7. Access Patterns Implementation - Implementing Pattern D
 
-In Pattern D, we will be creating a message for a new message group. We will start by adding a new URL to our `App.js` file
+In Pattern D, we will be creating a message for a new message group. We will start by adding a new URL to our `App.js` file.
   
 <details><summary>Implementation</summary>
 <p>
 
+In your `frontend-react-js/src/App.js` file, make the following changes:
+
+```js
+import MessageGroupNewPage from './pages/MessageGroupNewPage';
+
+// add these in the "router" section
+{
+    path: "/messages/new/:handle",
+    element: <MessageGroupNewPage />
+  },
+```
+
+In your `frontend-react-js/src/pages/` folder, create a file `MessageGroupNewPage.js`
+
+```bash
+# create file 
+touch frontend-react-js/src/pages/MessageGroupNewPage.js
+```
+
+Add the following content to the file:
+
+```js
+import './MessageGroupPage.css';
+import React from "react";
+import { useParams } from 'react-router-dom';
+
+import DesktopNavigation  from '../components/DesktopNavigation';
+import MessageGroupFeed from '../components/MessageGroupFeed';
+import MessagesFeed from '../components/MessageFeed';
+import MessagesForm from '../components/MessageForm';
+import checkAuth from '../lib/CheckAuth';
+
+export default function MessageGroupPage() {
+  const [otherUser, setOtherUser] = React.useState([]);
+  const [messageGroups, setMessageGroups] = React.useState([]);
+  const [messages, setMessages] = React.useState([]);
+  const [popped, setPopped] = React.useState([]);
+  const [user, setUser] = React.useState(null);
+  const dataFetchedRef = React.useRef(false);
+  const params = useParams();
+
+  const loadUserShortData = async () => {
+    try {
+      const backend_url = `${process.env.REACT_APP_BACKEND_URL}/api/users/@${params.handle}/short`
+      const res = await fetch(backend_url, {
+        method: "GET"
+      });
+      let resJson = await res.json();
+      if (res.status === 200) {
+        console.log('other user:',resJson)
+        setOtherUser(resJson)
+      } else {
+        console.log(res)
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };  
+
+  const loadMessageGroupsData = async () => {
+    try {
+      const backend_url = `${process.env.REACT_APP_BACKEND_URL}/api/message_groups`
+      const res = await fetch(backend_url, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`
+        },
+        method: "GET"
+      });
+      let resJson = await res.json();
+      if (res.status === 200) {
+        setMessageGroups(resJson)
+      } else {
+        console.log(res)
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };  
+
+  React.useEffect(()=>{
+    //prevents double call
+    if (dataFetchedRef.current) return;
+    dataFetchedRef.current = true;
+
+    loadMessageGroupsData();
+    loadUserShortData();
+    checkAuth(setUser);
+  }, [])
+  return (
+    <article>
+      <DesktopNavigation user={user} active={'home'} setPopped={setPopped} />
+      <section className='message_groups'>
+        <MessageGroupFeed otherUser={otherUser} message_groups={messageGroups} />
+      </section>
+      <div className='content messages'>
+        <MessagesFeed messages={messages} />
+        <MessagesForm setMessages={setMessages} />
+      </div>
+    </article>
+  );
+}
+```
+
+Let's add an endpoint for our `short` service. In your `app.py` file, add the following lines of code:
+  
+```python
+from services.users_short import *
+
+# at the end of the file, add this endpoint 
+@app.route("/api/users/@<string:handle>/short", methods=['GET'])
+def data_users_short(handle):
+  data = UsersShort.run(handle)
+  return data, 200
+
+if __name__ == "__main__":
+  app.run(debug=True)
+```
+  
+Now, create a file `users_short.py` with a `UsersShort` class defined which will be referenced in the `app.py` file. In your `backend-flask/services` folder, create the file `users_short.py` with the following content:
+  
+```bash
+# create file
+touch backend-flask/services/users_short.py
+```
+  
+```python
+# add these lines
+from lib.db import db
+
+class UsersShort:
+  def run(handle):
+    sql = db.template('users','short')
+    results = db.query_object_json(sql,{
+      'handle': handle
+    })
+    return results
+```
+  
+Now in your `backend-flask/db/sql/users` folder, create a file `short.sql` and add the following contents.
+
+```bash
+# create files 
+touch backend-flask/db/sql/users/short.sql
+```
+
+Content of `short.sql`
+
+```sql
+SELECT
+  users.uuid,
+  users.handle,
+  users.display_name
+FROM public.users
+WHERE 
+  users.handle = %(handle)s
+```
+
+In your `frontend-react-js/src/components` folder, create a file `MessageGroupNewItem.js` with the following content:
+
+```bash
+// create file 
+touch frontend-react-js/src/components/MessageGroupNewItem.js
+```
+  
+```js
+// add these lines
+import './MessageGroupItem.css';
+import { Link } from "react-router-dom";
+
+export default function MessageGroupNewItem(props) {
+  return (
+
+    <Link className='message_group_item active' to={`/messages/new/`+props.user.handle}>
+      <div className='message_group_avatar'></div>
+      <div className='message_content'>
+        <div classsName='message_group_meta'>
+          <div className='message_group_identity'>
+            <div className='display_name'>{props.user.display_name}</div>
+            <div className="handle">@{props.user.handle}</div>
+          </div>{/* activity_identity */}
+        </div>{/* message_meta */}
+      </div>{/* message_content */}
+    </Link>
+  );
+}
+```
+
+Now let's update the `frontend-react-js/src/components/MessageGroupFeed.js` file with the following:
+
+```js
+import './MessageGroupFeed.css';
+import MessageGroupItem from './MessageGroupItem';
+import MessageGroupNewItem from './MessageGroupNewItem';
+export default function MessageGroupFeed(props) {
+  let message_group_new_item;
+  if (props.otherUser) {
+    message_group_new_item = <MessageGroupNewItem user={props.otherUser} />
+  }
+
+  return (
+    <div className='message_group_feed'>
+      <div className='message_group_feed_heading'>
+        <div className='title'>Messages</div>
+      </div>
+      <div className='message_group_feed_collection'>
+        {message_group_new_item}
+        {props.message_groups.map(message_group => {
+        return  <MessageGroupItem key={message_group.uuid} message_group={message_group} />
+        })}
+      </div>
+    </div>
+  );
+}
+```
+
+You can add a 3rd user to your DB if you don't have one. Ignore if you do. 
+  
+```sql
+# connect to the DB
+./backend-flask/bin/db/connect
+
+# run inside the DB
+INSERT INTO public.users (display_name, handle, email, cognito_user_id)
+VALUES ('Some name', 'someName', 'someName@test.com', 'MOCK');
+```
+  
+After the insertion, refresh your URL page and append this endpoint `/messages/new/<handle-of-new-user>` and you should see a page with the new user on it. 
+  
+![Image of New User Message Display](assets/new-user-msg-display.png)
+  
+Now to be able to send messages to the new user added, let's update the `frontend-react-js/src/components/MessageForm.js` file with the following content. 
+  
+```js
+import './MessageForm.css';
+import React from "react";
+import process from 'process';
+import { json, useParams } from 'react-router-dom';
+
+export default function ActivityForm(props) {
+  const [count, setCount] = React.useState(0);
+  const [message, setMessage] = React.useState('');
+  const params = useParams();
+
+  const classes = []
+  classes.push('count')
+  if (1024-count < 0){
+    classes.push('err')
+  }
+
+  const onsubmit = async (event) => {
+    event.preventDefault();
+    try {
+      const backend_url = `${process.env.REACT_APP_BACKEND_URL}/api/messages`
+      console.log('onsubmit payload', message)
+      let json = { 'message': message }
+      if (params.handle) {
+        json.handle = params.handle
+      } else {
+        json.message_group_uuid = params.message_group_uuid
+      }
+
+      const res = await fetch(backend_url, {
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem("access_token")}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(json)
+      });
+      let data = await res.json();
+      if (res.status === 200) {
+        console.log('data:',data)
+        if (data.message_group_uuid) {
+          console.log('redirect to message group')
+          window.location.href = `/messages/${data.message_group_uuid}`
+        } else {
+          props.setMessages(current => [...current,data]);
+        }
+      } else {
+        console.log(res)
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  const textarea_onchange = (event) => {
+    setCount(event.target.value.length);
+    setMessage(event.target.value);
+  }
+
+  return (
+    <form 
+      className='message_form'
+      onSubmit={onsubmit}
+    >
+      <textarea
+        type="text"
+        placeholder="send a direct message..."
+        value={message}
+        onChange={textarea_onchange} 
+      />
+      <div className='submit'>
+        <div className={classes.join(' ')}>{1024-count}</div>
+        <button type='submit'>Message</button>
+      </div>
+    </form>
+  );
+}
+```
+  
+Afterwards, go into your `create_message.py` file and either add the `mode == "create"` segment if it doesn't exist or uncomment it if you commented it our earlier. 
+  
+```python
+elif (mode == "create"):
+        data = Ddb.create_message_group(
+          client=ddb,
+          message=message,
+          my_user_uuid=my_user['uuid'],
+          my_user_display_name=my_user['display_name'],
+          my_user_handle=my_user['handle'],
+          other_user_uuid=other_user['uuid'],
+          other_user_display_name=other_user['display_name'],
+          other_user_handle=other_user['handle']
+        )
+```
+  
+Do the same for your `ddb.py` library file. Uncomment or add this segment to your file.
+  
+```python
+# create a new message for a new msg grp
+def create_message_group(client, message,my_user_uuid, my_user_display_name, my_user_handle, other_user_uuid, other_user_display_name, other_user_handle):
+    print('== create_message_group.1')
+    table_name = 'cruddur-messages'
+
+    message_group_uuid = str(uuid.uuid4())
+    message_uuid = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).astimezone().isoformat()
+    last_message_at = now
+    created_at = now
+    print('== create_message_group.2')
+
+    my_message_group = {
+      'pk': {'S': f"GRP#{my_user_uuid}"},
+      'sk': {'S': last_message_at},
+      'message_group_uuid': {'S': message_group_uuid},
+      'message': {'S': message},
+      'user_uuid': {'S': other_user_uuid},
+      'user_display_name': {'S': other_user_display_name},
+      'user_handle':  {'S': other_user_handle}
+    }
+
+    print('== create_message_group.3')
+    other_message_group = {
+      'pk': {'S': f"GRP#{other_user_uuid}"},
+      'sk': {'S': last_message_at},
+      'message_group_uuid': {'S': message_group_uuid},
+      'message': {'S': message},
+      'user_uuid': {'S': my_user_uuid},
+      'user_display_name': {'S': my_user_display_name},
+      'user_handle':  {'S': my_user_handle}
+    }
+
+    print('== create_message_group.4')
+    message = {
+      'pk':   {'S': f"MSG#{message_group_uuid}"},
+      'sk':   {'S': created_at },
+      'message': {'S': message},
+      'message_uuid': {'S': message_uuid},
+      'user_uuid': {'S': my_user_uuid},
+      'user_display_name': {'S': my_user_display_name},
+      'user_handle': {'S': my_user_handle}
+    }
+
+    items = {
+      table_name: [
+        {'PutRequest': {'Item': my_message_group}},
+        {'PutRequest': {'Item': other_message_group}},
+        {'PutRequest': {'Item': message}}
+      ]
+    }
+
+    try:
+      print('== create_message_group.try')
+      # Begin the transaction
+      response = client.batch_write_item(RequestItems=items)
+      return {
+        'message_group_uuid': message_group_uuid
+      }
+    except botocore.exceptions.ClientError as e:
+      print('== create_message_group.error')
+      print(e)
+```
+  
+Now login again or refresh the URL that you appended earlier. Now you should be able to reply to the new user like so.
+  
+![Image of New User Message Reply](assets/new-user-msg-reply.png)
+  
 </p>
 </details>
 
 
-### 8. Access Patterns Implementation - 
+### 8. Access Patterns Implementation - Implementing Pattern E Using DynamoDB Streams
+  
+We will be using DynamoDB streams to update our message groups when a new message is created. Message groups have `last_message_at` as a sort key, so this obviously needs to be updated every time a new message is created for a message group. 
 
-<details><summary>Solution</summary>
+Now let’s move from using a local DynamoDB table to production. To do that, let us create a DynamoDB table using the command below. 
+
+```bash
+# create a ddb table in AWS console - run in terminal
+./backend-flask/bin/ddb/schema-load prd 
+```
+
+Log in to your AWS console to see the newly created table.
+
+<details><summary>Steps to Creating a DynamoDB Stream</summary>
 <p>
 
-</p>
-</details>
-
-
-### 9. Access Patterns Implementation - 
-
-<details><summary>Solution</summary>
+<details><summary>Step 1: Enable streams on the table with 'new image' attributes included</summary>
 <p>
+  
+After creation, confirm table creation in your AWS console. 
 
+- When confirmed, click into the created table, **cruddur-messages**
+- Select the **Exports and streams** tab
+- Scroll down to **DynamoDB stream details** and click **Turn on**
+- In the **DynamoDB stream details** page, select `New image` as the view type
+  
+  ![Image of Turning On DynamoDB Stream](assets/turn-on-dynamodb-stream.png)
+  
+- Then go ahead and **Turn on stream**
+  
 </p>
 </details>
+  
+<details><summary>Step 2: Create a VPC endpoint (Gateway endpoint) for DynamoDB Service on your VPC</summary>
+<p>
+  
+This stream will be using a VPC endpoint (gateway endpoint), which provides access to DynamoDB, among a few other services. There is no additional cost to this type of VPC endpoint. 
 
+- Navigate to **VPC** service on your AWS console
+- Scroll down to **Endpoints** and click **Create endpoint**
+- In the **Create endpoint** page, add a `Name tag` of your choice, mine was “**ddb-cruddur**”
+- For the **Service category**, select **AWS services**
+- Under the **Services** section, search for `dynamodb` and select the service
+- For **VPC**, select your vpc and **route tables**
+- Leave the default selection for **Policy**
+- Then go ahead and **Create**
+  
+</p>
+</details>
+  
+<details><summary>Step 3: Create a Python lambda function in your VPC</summary>
+<p>
+  
+As the stream captures all events, the lambda function will select that it wants to take action only on events starting with `'MSG'` (messages instead of message groups). The function then does a DB query, which returns two message groups then, deletes the sort keys, and inserts them with updated values (the `created_at` of the last message as the `last_message_at`). As it's not possible to update the `sk`, you have to delete it and recreate it. 
 
+- Navigate to **Lambda** service on your AWS console
+- Click on **Create function** to create a lambda function by selecting **Author from scratch**
+- Under the **Basic information** section, do the following:
+  - Function name: `cruddur-messaging-stream`
+  - Runtime: `Python 3.9`
+  - Architecture: `x86_64`
+  - For **Permissions**, leave the **Execution role** as `Create a new role with basic Lambda permissions`
+- Under **Advanced settings**, check the box to **Enable VPC**
+  - Select your VPC, subnets and default security group
+- Then go ahead and **create**
+- After creation, click into the lambda function and go to the **Code** tab
+- Add the following code to your `lambda_function.py` file
+    - Also, create a file to store our lambda code in our codebase.
+    - Create a file, `cruddur-messaging-stream.py` in `aws/lambdas/` directory
+    - `touch aws/lambdas/cruddur-messaging-stream.py`
 
+```python
+# lambda_function.py code
+import json
+import boto3
+from boto3.dynamodb.conditions import Key, Attr
 
+dynamodb = boto3.resource(
+ 'dynamodb',
+# make sure you have YOUR OWN REGION & CORRECT ENDPOINT
+ region_name='MY-REGION',
+ endpoint_url="http://dynamodb.MY-REGION.amazonaws.com"
+)
 
+def lambda_handler(event, context):
+  pk = event['Records'][0]['dynamodb']['Keys']['pk']['S']
+  sk = event['Records'][0]['dynamodb']['Keys']['sk']['S']
+  if pk.startswith('MSG#'):
+    group_uuid = pk.replace("MSG#","")
+    message = event['Records'][0]['dynamodb']['NewImage']['message']['S']
+    print("GRUP ===>",group_uuid,message)
+    
+    table_name = 'cruddur-messages'
+    index_name = 'message-group-sk-index'
+    table = dynamodb.Table(table_name)
+    data = table.query(
+      IndexName=index_name,
+      KeyConditionExpression=Key('message_group_uuid').eq(group_uuid)
+    )
+    print("RESP ===>",data['Items'])
+    
+    # recreate the message group rows with new SK value
+    for i in data['Items']:
+      delete_item = table.delete_item(Key={'pk': i['pk'], 'sk': i['sk']})
+      print("DELETE ===>",delete_item)
+      
+      response = table.put_item(
+        Item={
+          'pk': i['pk'],
+          'sk': sk,
+          'message_group_uuid':i['message_group_uuid'],
+          'message':message,
+          'user_display_name': i['user_display_name'],
+          'user_handle': i['user_handle'],
+          'user_uuid': i['user_uuid']
+        }
+      )
+      print("CREATE ===>",response)
+```
 
+- Now go ahead and deploy your changes  
+  
+</p>
+</details>
+  
+<details><summary>Step 4: Grant the lambda IAM role permission to read the DynamoDB stream events</summary>
+<p>
+  
+- Inside the created lambda function, go to the **Configuration** tab
+- Select the **Permissions** page, and under the **role name**, click the role to take you to a different page
+  - On that different page, scroll down to **Add permissions** on your right
+  - Select **Attach policy** to attach one
+  - Search for the `AWSLambdaInvocation-DynamoDB` policy. This should already be provided as it is managed by AWS
+  - Select that policy to attach it to that role. This allows Lambda to be able to invoke DynamoDB streams.
 
+However, for the above query in the lambda function to work so that the two message groups can be returned, a global secondary index (GSI) is needed. 
 
+This is because the partition key of the message group is `user_uuid`, which means we are not able to make a query based on `message_group_uuid` unless making a scan, which would not be cost-effective. 
 
+Now we have to recreate our table to reflect the upcoming new changes of adding a GSI. Go ahead and delete the DynamoDB table you created. You can do this through the AWS console. Afterwards, go into your `backend-flask/bin/ddb/schema-load` file and add the following contents: 
+
+```python
+  
+# add these under "AttributeDefinitions"
+AttributeDefinitions=[
+    {
+      'AttributeName': 'message_group_uuid',
+      'AttributeType': 'S'
+    },
+
+# add the GSI after "KeySchema"
+GlobalSecondaryIndexes= [{
+    'IndexName':'message-group-sk-index',
+    'KeySchema':[{
+      'AttributeName': 'message_group_uuid',
+      'KeyType': 'HASH'
+    },{
+      'AttributeName': 'sk',
+      'KeyType': 'RANGE'
+    }],
+    'Projection': {
+      'ProjectionType': 'ALL'
+    },
+    'ProvisionedThroughput': {
+      'ReadCapacityUnits': 5,
+      'WriteCapacityUnits': 5
+    },
+  }],
+```
+
+This basically creates a clone of your primary table using the `message_group_uuid` as partition key, but the two tables are kept in sync. This GSI allows for querying the table based on the `message_group_uuid` attribute, in addition to the primary key attributes `pk` and `sk`. Now it is possible to easily access all of the message groups when the `sk` needs to be updated.
+
+After the modification, run the command below to recreate our deleted table with a new schema. 
+
+```bash
+# create a new ddb table with our new schema 
+./backend-flask/bin/ddb/schema-load prd
+```
+
+Now go back and do the previous configurations again. After those, continue with the rest of the configuration.
+  
+</p>
+</details>
+  
+<details><summary>Step 5: Add your function as a trigger on the stream</summary>
+<p>
+  
+- Inside the created table, select the **Exports and streams** tab
+- Scroll down to **DynamoDB stream details** and click **Create trigger**
+- In the **Lambda function details**, do the following
+  - Lambda function: Select your lambda function
+  - Batch size: **1**
+  - Check the box for **Turn on trigger**
+  - Then go ahead and **Create**
+
+Now the creation of a new message will be captured by the DynamoDB stream, which triggers the lambda function that will use the GSI to query all message groups where the `message_group_uuid` matches the partition key of the message. It will then replace the `sk` (`last_message_at`) with the `sk` value (`created_at`) of the new message.
+  
+</p>
+</details>
+  
+<details><summary>Step 6: Grant the lambda IAM role permission to update table items</summary>
+<p>
+  
+- Inside the created lambda function, go to the **Configuration** tab
+- Select the **Permissions** page, and under the **role name**, click the role to take you to a different page
+  - On that different page, scroll down to **Add permissions** on your right
+  - Select **Create inline policy** to create a custom policy
+    - For **Service**, search for `DynamoDB`
+    - For **Actions**, add these permissions
+      - **Read**: `Query`
+      - **Write**: `DeleteItem`, `PutItem` and
+  - For **Resources**, beside **table**, click `Add ARN` and fill out the information with these
+
+![Image of ARN for Table](assets/arn-for-table.png)
+  
+  - Beside **index**, click `Add ARN` and fill out the information with these
+        
+![Image of ARN for Index](assets/arn-for-index.png)
+   
+  - Or you can go ahead and paste this JSON code instead
+  - Go ahead and create a folder for our polices in `aws/policies` and add a file, `cruddur-message-stream-policy.json`
+
+```bash
+# create the folder
+mkdir aws/policies
+
+# create the file
+touch aws/policies/cruddur-message-stream-policy.json
+```
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+      {
+          "Sid": "VisualEditor0",
+          "Effect": "Allow",
+          "Action": [
+              "dynamodb:PutItem",
+              "dynamodb:DeleteItem",
+              "dynamodb:Query"
+          ],
+          "Resource": [
+              "arn:aws:dynamodb:ca-central-1:387543059434:table/cruddur-messages",
+              "arn:aws:dynamodb:ca-central-1:387543059434:table/cruddur-messages/index/message-group-sk-index"
+          ]
+      }
+  ]
+}
+```
+  
+  - Click **Next**, and add the name for the policy as  **`cruddur-messaging-stream-dynamodb`**
+  - Go ahead and **Create**
+  - That should already attach the policy to the role for you. This gives Lambda delete and update permissions in DynamoDB.
+</p>
+</details>
+  
+<details><summary>Set Up App to Use Our `prd` Details</summary>
+<p>
+  
+In your `docker-compose.yml` file, comment out the `AWS_ENDPOINT_URL` and do a `docker compose down`. Then start up the application by doing `docker compose up`. 
+
+Once loaded up, open your `frontend` UI in your browser and navigate to the **Messages** page. 
+
+- In there, you should notice your URL reflecting `/messages`
+- Go ahead and append `/new/<whatever_user_handle_you_created>`. Now click on that handle and try sending a message to them. That should look like this:
+  
+![Image of Sending New Message](assets/sending-new-msg.png)
+  
+If you are encountering an error, check your `docker logs` if it is `token expired` error. Just sign out and sign back in. That should resolve the token error. 
+
+You can also view your logs from the **Monitor** tab in your lambda function. 
+
+But, if you are encountering an error like this, follow the steps below to rectify it.
+  
+![Image of Lambda CloudWatch Logs](assets/lambda-cloudwatch-logs.png)
+  
+Make these updates to your `lambda_function.py` code. Don’t forget to do the same on your lambda file in your codebase `aws/lambdas/cruddur-messaging-stream.py`. 
+  
+```python
+import json
+import boto3
+from boto3.dynamodb.conditions import Key, Attr
+
+dynamodb = boto3.resource(
+ 'dynamodb',
+ # make sure you have YOUR OWN REGION & CORRECT ENDPOINT
+ region_name='MY-REGION',
+ endpoint_url="http://dynamodb.MY-REGION.amazonaws.com"
+)
+
+def lambda_handler(event, context):
+  print('event-data',event)
+
+  eventName = event['Records'][0]['eventName']
+  if (eventName == 'REMOVE'):
+    print("skip REMOVE event")
+    return
+  pk = event['Records'][0]['dynamodb']['Keys']['pk']['S']
+  sk = event['Records'][0]['dynamodb']['Keys']['sk']['S']
+  if pk.startswith('MSG#'):
+    group_uuid = pk.replace("MSG#","")
+    message = event['Records'][0]['dynamodb']['NewImage']['message']['S']
+    print("GRUP ===>",group_uuid,message)
+    
+    table_name = 'cruddur-messages'
+    index_name = 'message-group-sk-index'
+    table = dynamodb.Table(table_name)
+    data = table.query(
+      IndexName=index_name,
+      KeyConditionExpression=Key('message_group_uuid').eq(group_uuid)
+    )
+    print("RESP ===>",data['Items'])
+    
+    # recreate the message group rows with new SK value
+    for i in data['Items']:
+      delete_item = table.delete_item(Key={'pk': i['pk'], 'sk': i['sk']})
+      print("DELETE ===>",delete_item)
+      
+      response = table.put_item(
+        Item={
+          'pk': i['pk'],
+          'sk': sk,
+          'message_group_uuid':i['message_group_uuid'],
+          'message':message,
+          'user_display_name': i['user_display_name'],
+          'user_handle': i['user_handle'],
+          'user_uuid': i['user_uuid']
+        }
+      )
+      print("CREATE ===>",response)
+```
+  
+After the modifications, log back in and append the handle URL from before. 
+
+Now, try sending another message to that handle. It should be a success. 
+
+You can also check your lambda logs in CloudWatch to be sure there are no more errors. 
+</p>
+</details>
+ 
+</p>
+</details>
 
