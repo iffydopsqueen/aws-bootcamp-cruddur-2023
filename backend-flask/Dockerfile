@@ -1,4 +1,4 @@
-FROM python:3.10-slim-buster
+FROM 013073124868.dkr.ecr.us-west-2.amazonaws.com/cruddur-python:3.10-slim-buster
 
 # Create this directory within the container 
 WORKDIR /backend-flask
@@ -16,7 +16,8 @@ COPY . .
 
 # This is a way to configure our environment
 # Set env variables in the container 
-ENV FLASK_ENV=development
+# ENV FLASK_ENV=development
+ENV FLASK_DEBUG=1
 
 EXPOSE ${PORT}
 
