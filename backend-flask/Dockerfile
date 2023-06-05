@@ -25,4 +25,4 @@ EXPOSE ${PORT}
 # -m means to use the flask module
 # --host=0.0.0.0 is for setting the port in the container 
 # --port=4567 is for setting the app port
-CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0", "--port=4567"]
+CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0", "--port=4567", "--debug"]
