@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require 'erb'
+
+template = File.read '.env.backend-flask.erb'
+script_content = ERB.new(template).result(binding)
