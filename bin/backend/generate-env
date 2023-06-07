@@ -2,5 +2,7 @@
 
 require 'erb'
 
-template = File.read '.env.backend-flask.erb'
-script_content = ERB.new(template).result(binding)
+template = File.read 'erb/.env.backend-flask'
+content = ERB.new(template).result(binding)
+filename = ".env.backend-flask.erb"
+File.write(filename, content)
