@@ -12,11 +12,13 @@ tasks:
 
   - name: Frontend (react-js)
     command: |
+      ruby "$THEIA_WORKSPACE_ROOT/bin/frontend/generate-env"
       cd /workspace/aws-bootcamp-cruddur-2023/frontend-react-js
       npm i  
 
   - name: Backend (flask)
     command: |
+      ruby "$THEIA_WORKSPACE_ROOT/bin/backend/generate-env"
       cd /workspace/aws-bootcamp-cruddur-2023/backend-flask
       pip3 install -r requirements.txt
   
