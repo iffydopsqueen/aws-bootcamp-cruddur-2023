@@ -10,4 +10,4 @@ docker run --rm \
   --env-file $ENVFILE_PATH \
   --network cruddur-net \
   --publish 4567:4567 \
-  -it backend-flask-prod
+  -it backend-flask-prod /bin/bash
