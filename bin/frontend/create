@@ -1,0 +1,3 @@
+#! /usr/bin/bash
+
+aws ecs create-service --cli-input-json file://aws/json/service-frontend-react-js.json

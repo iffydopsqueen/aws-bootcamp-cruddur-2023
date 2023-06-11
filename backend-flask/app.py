@@ -58,8 +58,8 @@ trace.set_tracer_provider(provider)
 tracer = trace.get_tracer(__name__)
 
 # AWS X-Ray
-xray_url = os.getenv("AWS_XRAY_URL")
-xray_recorder.configure(service='backend-flask', dynamic_naming=xray_url)
+#xray_url = os.getenv("AWS_XRAY_URL")
+#xray_recorder.configure(service='backend-flask', dynamic_naming=xray_url)
 
 app = Flask(__name__)
 
@@ -70,7 +70,7 @@ cognito_jwt_token = CognitoJwtToken(
 )
 
 # AWS X-ray
-XRayMiddleware(app, xray_recorder)
+#XRayMiddleware(app, xray_recorder)
 
 # Honeycomb
 # Initialize automatic instrumentation with Flask
@@ -89,10 +89,16 @@ cors = CORS(
   methods="OPTIONS,GET,HEAD,POST"
 )
 
+# Health-check
+@app.route('/api/health-check')
+def health_check():
+  return {'success': True}, 200
+
 # Rollbar
 rollbar_access_token = os.getenv('ROLLBAR_ACCESS_TOKEN')
-@app.before_first_request
-def init_rollbar():
+# @app.before_first_request
+with app.app_context():
+  def init_rollbar():
     """init rollbar module"""
     rollbar.init(
         # access token
@@ -201,7 +207,7 @@ def data_create_message():
 
 @app.route("/api/activities/home", methods=['GET'])
 # AWS Xray
-@xray_recorder.capture('activities_home')
+#@xray_recorder.capture('activities_home')
 def data_home():
   access_token = extract_access_token(request.headers)
   try:
@@ -228,7 +234,7 @@ def data_notifications():
   return data, 200
 
 @app.route("/api/activities/@<string:handle>", methods=['GET'])
-@xray_recorder.capture('activities_users')
+#@xray_recorder.capture('activities_users')
 def data_handle(handle):
   model = UserActivities.run(handle)
   if model['errors'] is not None:

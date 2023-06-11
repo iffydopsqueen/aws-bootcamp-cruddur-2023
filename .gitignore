@@ -1,0 +1,4 @@
+*.env
+docker/**/*
+session-manager-plugin.*
+frontend-react-js/build/*
