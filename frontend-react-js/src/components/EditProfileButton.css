@@ -8,6 +8,6 @@
     cursor: pointer;
   }
   
-  .profile-edit-button:hover {
-    background: rgba(255,255,255,0.3)
-  }
+.profile-edit-button:hover {
+  background: rgba(255,255,255,0.3)
+}
