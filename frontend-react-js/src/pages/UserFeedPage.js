@@ -2,13 +2,14 @@ import './UserFeedPage.css';
 import React from "react";
 import { useParams } from 'react-router-dom';
 
-import DesktopNavigation  from '../components/DesktopNavigation';
-import DesktopSidebar     from '../components/DesktopSidebar';
-import ActivityFeed from '../components/ActivityFeed';
-import ActivityForm from '../components/ActivityForm';
-import ProfileHeading from '../components/ProfileHeading';
-//import ProfileForm from '../components/ProfileForm';
-import {checkAuth, getAccessToken} from '../lib/CheckAuth';
+import DesktopNavigation  from 'components/DesktopNavigation';
+import DesktopSidebar     from 'components/DesktopSidebar';
+import ActivityFeed from 'components/ActivityFeed';
+import ActivityForm from 'components/ActivityForm';
+import ProfileHeading from 'components/ProfileHeading';
+import ProfileForm from 'components/ProfileForm';
+
+import {checkAuth, getAccessToken} from 'lib/CheckAuth';
 
 export default function UserFeedPage() {
   const [activities, setActivities] = React.useState([]);
@@ -33,6 +34,7 @@ export default function UserFeedPage() {
       });
       let resJson = await res.json();
       if (res.status === 200) {
+        console.log('setprofile',resJson.profile)
         setProfile(resJson.profile)
         setActivities(resJson.activities)
       } else {
@@ -52,18 +54,22 @@ export default function UserFeedPage() {
     checkAuth(setUser);
   }, [])
 
-return (
-  <article>
-    <DesktopNavigation user={user} active={'profile'} setPopped={setPopped} />
-    <div className='content'>
-      <ActivityForm popped={popped} setActivities={setActivities} />
-      
-      <div className='activity_feed'>
-        <ProfileHeading setPopped={setPoppedProfile} profile={profile} />
-        <ActivityFeed activities={activities} />
+  return (
+    <article>
+      <DesktopNavigation user={user} active={'profile'} setPopped={setPopped} />
+      <div className='content'>
+        <ActivityForm popped={popped} setActivities={setActivities} />
+        <ProfileForm 
+          profile={profile}
+          popped={poppedProfile} 
+          setPopped={setPoppedProfile} 
+        />
+        <div className='activity_feed'>
+          <ProfileHeading setPopped={setPoppedProfile} profile={profile} />
+          <ActivityFeed activities={activities} />
+        </div>
       </div>
-    </div>
-    <DesktopSidebar user={user} />
-  </article>
-);
+      <DesktopSidebar user={user} />
+    </article>
+  );
 }
