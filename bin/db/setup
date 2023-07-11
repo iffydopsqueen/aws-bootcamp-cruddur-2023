@@ -18,3 +18,4 @@ source "$DB_PATH/seed"
 # source "$DB_PATH/update_cognito_user_ids"
 # "update_cognito_user_ids" is a python script
 python "$DB_PATH/update_cognito_user_ids"
+python "$DB_PATH/migrate"
