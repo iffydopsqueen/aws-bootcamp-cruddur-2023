@@ -1,6 +1,6 @@
 "use strict";
 const { CognitoJwtVerifier } = require("aws-jwt-verify");
-//const { assertStringEquals } = require("aws-jwt-verify/assert");
+// const { assertStringEquals } = require("aws-jwt-verify/assert");
 
 const jwtVerifier = CognitoJwtVerifier.create({
   userPoolId: process.env.USER_POOL_ID,
@@ -14,7 +14,7 @@ const jwtVerifier = CognitoJwtVerifier.create({
 exports.handler = async (event) => {
   console.log("request:", JSON.stringify(event, undefined, 2));
 
-  const jwt = event.headers.authorization;
+  const jwt = event.headers.authorization.split(' ')[1];
   try {
     const payload = await jwtVerifier.verify(jwt);
     console.log("Access allowed. JWT payload:", payload);
