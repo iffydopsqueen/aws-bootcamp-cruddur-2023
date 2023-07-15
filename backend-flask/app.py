@@ -93,7 +93,7 @@ cors = CORS(
 # Health-check
 @app.route('/api/health-check')
 def health_check():
-  return {'success': True}, 200
+  return {'success': True, 'ver': 1}, 200
 
 # Rollbar
 rollbar_access_token = os.getenv('ROLLBAR_ACCESS_TOKEN')
