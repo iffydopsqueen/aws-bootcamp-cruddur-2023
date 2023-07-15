@@ -21,6 +21,8 @@ ENV FLASK_DEBUG=1
 
 EXPOSE ${PORT}
 
+ENV PYTHONUNBUFFERED=1
+
 # python3 -m flask run --host=0.0.0.0 --port=4567
 # -m means to use the flask module
 # --host=0.0.0.0 is for setting the port in the container 

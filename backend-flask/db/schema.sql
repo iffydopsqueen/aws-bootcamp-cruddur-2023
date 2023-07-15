@@ -7,6 +7,16 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- the name public is like a namespace for schemas in postgres 
 -- you can still create the tables without specifying "public"
 
+-- create a table called "schema_information"
+CREATE TABLE IF NOT EXISTS public.schema_information (
+  id integer UNIQUE,
+  last_successful_run text
+);
+
+INSERT INTO public.schema_information (id,last_successful_run) 
+VALUES (1,'0')
+ON CONFLICT (id) DO NOTHING;
+
 -- this deletes the table "users" if it already exists
 DROP TABLE IF EXISTS public.users; 
 
@@ -19,7 +29,6 @@ CREATE TABLE public.users (
   cognito_user_id text NOT NULL,
   created_at TIMESTAMP default current_timestamp NOT NULL
 );
-
 
 -- this deletes the table "activities" if it already exists
 DROP TABLE IF EXISTS public.activities;
