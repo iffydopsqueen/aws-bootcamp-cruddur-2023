@@ -1,0 +1,35 @@
+# Buildspec runs in the build stage of your pipeline.
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      docker: 20
+    commands:
+      - echo "cd into $CODEBUILD_SRC_DIR/frontend"
+      - cd $CODEBUILD_SRC_DIR/frontend-react-js
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $IMAGE_URL
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...          
+      - docker build -t frontend-react-js .
+      - "docker tag $REPO_NAME $IMAGE_URL/$REPO_NAME"
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $IMAGE_URL/$REPO_NAME
+      - cd $CODEBUILD_SRC_DIR/
+      - echo "imagedefinitions.json > [{\"name\":\"$CONTAINER_NAME\",\"imageUri\":\"$IMAGE_URL/$REPO_NAME\"}]" > imagedefinitions.json
+      - printf "[{\"name\":\"$CONTAINER_NAME\",\"imageUri\":\"$IMAGE_URL/$REPO_NAME\"}]" > imagedefinitions.json
+
+env:
+  variables:
+    AWS_ACCOUNT_ID: 013073124868
+    AWS_DEFAULT_REGION: us-west-2
+    CONTAINER_NAME: frontend-react-js
+    IMAGE_URL: 013073124868.dkr.ecr.us-west-2.amazonaws.com
+    REPO_NAME: frontend-react-js:latest
+artifacts:
+  files:
+    - imagedefinitions.json
