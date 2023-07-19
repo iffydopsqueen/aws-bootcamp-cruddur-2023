@@ -1294,6 +1294,9 @@ docker compose up
 docker run --rm -p 3000:3000 -it frontend-react-js
 ```
 
+</p>
+</details>
+
 
 ### 7. Deploy Frontend React JS app as a service to FARGATE
 
@@ -2697,17 +2700,1535 @@ After all the modifications, rebuild both backend and frontend images, if not re
 
 ### 14. Fix Messaging in Production
 
-<details><summary>Install Boto3</summary>
-<p> 
+Our DynamoDB isn’t working in production mode, so let’s debug that. 
+
+To be sure you don’t have any data showing up on your `frontend`, go to your URL, `mydomain.com`, and try signing in in case there’s an expired token. When signed in, if you don’t still see any data, go ahead and start debugging. 
+
+In your browser, right-click and select **Inspect** to debug the page. 
+
+- Now navigate to the **Network** tab,
   
+- You should see an error from `OPTIONS` and `GET`. The one we care about is the `GET` request.
+  
+- Click on it and see if it is pointed to the right URL
+
+- If not, there you have the reason for your error
+
+<details><summary>Error Persists</summary>
+<p> 
+
+If the error is still there, go back to your codebase and inspect your environment variables in `bin/docker/build/frontend-react-js-prod`
+
+- Your `REACT_APP_BACKEND_URL` shouldn’t be pointing to the Gitpod workspace URL but instead to your domain name.
+
+	```bash
+	# change this 
+	--build-arg REACT_APP_BACKEND_URL="https://4567-$GITPOD_WORKSPACE_ID.$GITPOD_WORKSPACE_CLUSTER_HOST" \
+	
+	# to this 
+	--build-arg REACT_APP_BACKEND_URL="https://api.mydomain.com" \
+	```
+
+After the update, we need to rebuild our image, push, and deploy it. 
+
+	```bash
+	# rebuild my prd image 
+	./bin/docker/build/frontend-react-js-prod
+	
+	# push my new image 
+	./bin/docker/push/frontend-react-js-prod
+	
+	# force deployment
+	./bin/ecs/force-deploy-frontend-react-js
+	```
+
+Go back to your ECS on the AWS console to confirm the deployment was successful. Check that it wasn’t continuously failing. 
+
+- Go over to your EC2 service and check that the target groups are not still draining if they are, that’s because it’s replacing the currently running version of the container with the latest version of the deployment.
+  
+- The ECS `DeploymentController` is how ECS handles deployments.
+  
+- Every time we do a deployment, it is doing the `ECS` type deployment. And this type of deployment involves replacing the currently running version of the container with the latest version.
+  
+- Check out this [documentation](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeploymentController.html)
+
+While the target group is still `draining`, refresh your frontend and open up `Inspect` again. You shouldn’t be seeing any errors anymore. 
+
 </p>
 </details>
 
-<details><summary>Install Boto3</summary>
+While waiting for the **target group** to finish draining, let's go ahead and restructure our script files. 
+
+<details><summary>Restructure Script Files</summary>
 <p> 
+
+Due to the cumbersome amount of scripts we have and navigating to them, it’s a lot of overhead. So to alleviate these difficulties, let’s try restructuring again. 
+
+In the `bin/` directory, let’s create folders for our respective apps, `frontend` and `backend`. 
+
+```bash
+mkdir bin/frontend 
+mkdir bin/backend
+```
+
+Now let’s move our respective files into the right folders. 
+
+In the `bin/frontend` directory, move the `frontend-react-js-prod` file to the `frontend` and rename it to `build`. Do the same for the `backend-flask-prod` to `backend` and rename it to `build` as well.  
+
+```bash
+# for the build folder 
+mv bin/docker/build/frontend-react-js-prod bin/frontend/build
+mv bin/docker/build/backend-flask-prod bin/backend/build
+
+# for the push folder 
+mv bin/docker/push/frontend-react-js-prod bin/frontend/push
+mv bin/docker/push/backend-flask-prod bin/backend/push
+
+# for the ecs folder 
+mv bin/ecs/connect-to-frontend-react-js bin/frontend/connect
+mv bin/ecs/connect-to-backend-flask bin/backend/connect
+
+mv bin/ecs/force-deploy-frontend-react-js bin/frontend/deploy
+mv bin/ecs/force-deploy-backend-flask bin/backend/deploy
+
+```
+
+Now let’s update the paths. 
+
+In `bin/backend/build`, update the code with:
+
+```bash
+ABS_PATH=$(readlink -f "$0")
+BACKEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $BACKEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+BACKEND_FLASK_PATH="$PROJECT_PATH/backend-flask"
+```
+
+In `bin/frontend/build`, update the code with:
+
+```bash
+ABS_PATH=$(readlink -f "$0")
+FRONTEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $FRONTEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+FRONTEND_REACT_JS_PATH="$PROJECT_PATH/frontend-react-js"
+```
+
+</p>
+</details>
+
+Now our target group should be done `draining`. Reload your domain name in the browser, and now you should see some data. 
+
+Navigate to the **Messages** page to see if your users show up. NOPE, they don’t. Do an `Inspect` to confirm there aren’t any errors. 
+
+- If no errors, append this to your URL - `/messages/new/yah_king` and you should still see no data.
   
+- That is because our seeded data exists locally and not in our production database.
+  
+- Let’s go ahead and seed some data into our production.
+
+```bash
+./bin/db/connect prd 
+
+# inside database 
+\x on
+SELECT * FROM USERS;
+```
+
+If only one user exists in the DB, then that’s why we don’t have any users showing up. 
+
+So to populate our production DB with some users, let’s manually add them. 
+
+- Navigate to your `backend-flask/db/seed.sql` file and copy the command to insert a value. **Be sure not to insert a user that already exists - a duplicate.**
+
+```sql
+# make sure this is not the same user in have in the DB 
+# when you connected to prd
+INSERT INTO public.users (display_name, email, handle, cognito_user_id) VALUES ('Andrew Bayko','bayko@exampro.co', 'bayko','MOCK')
+```
+
+<details><summary>Errors that Could Be Encountered Due to Duplicate Users</summary>
+<p> 
+
+When you create a duplicate user, you get a `500` error for `short` when navigating to another user handle - `/new/some_handle`
+
+Using **Inspect**, Rollbar, and CloudWatch Logs to investigate the problem. 
+
+According to all the monitoring tools, it shows that the issue is with our `users short` data. And that is not helping because that’s not the problem. Hmmm 🤔
+
+Okay, let’s navigate to our `/backend-flask/services/users_short.py` file; we see that everything looks fine. 
+
+Let’s connect to our DB production and see the users we have there 
+
+```sql
+# connect to DB
+./bin/db/connect prd 
+
+# inside database 
+\x on
+SELECT * FROM USERS;
+```
+
+You should see that you have created a duplicate user. 
+
+Delete one of those users using this command:
+
+```sql
+DELETE FROM USERS WHERE uuid = 'ac38cf67-1d82-4e4a-a578-f2f92c9d4944';
+```
+
+But it raises the question, why do we have a `500` error instead of another error code to tell us exactly what the issue was? I guess it could be a wrong error logging on our end. 
+
+Let’s navigate to our `backend-flask/lib/db.py` file and see what this section of code returns 
+
+```python
+with self.pool.connection() as conn:
+      with conn.cursor() as cur:
+        cur.execute(wrapped_sql,params)
+        json = cur.fetchone()
+        if json == None:
+          "{}"
+          else:
+            return json[0]
+```
+
+Make sure to `docker compose down` and back up again for our changes of deleting one of the duplicate users to reflect.
+
+</p>
+</details>
+
+<details><summary>Still Fixing Messaging in Production</summary>
+<p> 
+
+Let’s seed data into our production environment. Before running the script for that, make sure the paths in the file are correct after our restructuring. 
+
+In `bin/db/setup` file, update with the following code:
+
+```bash
+# update with this 
+ABS_PATH=$(readlink -f "$0")
+DB_PATH=$(dirname $ABS_PATH)
+
+source "$DB_PATH/drop"
+source "$DB_PATH/create"
+source "$DB_PATH/schema-load"
+source "$DB_PATH/seed"
+python "$DB_PATH/update_cognito_user_ids"
+```
+
+For `schema-load`, update with the following code:
+
+```bash
+ABS_PATH=$(readlink -f "$0")
+DB_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $DB_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+```
+
+For `seed`, update with the following code:
+
+```bash
+ABS_PATH=$(readlink -f "$0")
+DB_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $DB_PATH)
+```
+
+Now try running the `setup` script:
+
+```bash
+./bin/db/setup
+```
+
+Due to having so many open DB sessions, we will be creating a script to kill our open sessions.
+
+In `backend-flask/db` directory, create a file `kill-all-connections.sql` with the following content:
+
+```sql
+touch backend-flask/db/kill-all-connections.sql
+
+# file content 
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE   
+-- don't kill my own connection!
+pid <> pg_backend_pid()
+-- don't kill the connections to other databases
+AND datname = 'cruddur';
+```
+
+To be sure the SQL file works, run the above commands inside the DB 
+
+```sql
+# connect to DB
+./bin/db/connect
+
+# inside DB 
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE   
+-- don't kill my own connection!
+pid <> pg_backend_pid()
+-- don't kill the connections to other databases
+AND datname = 'cruddur';
+```
+
+Now go ahead and run the `setup` script to drop and create a new DB.
+
+Go ahead and create a `kill-all` script for the SQL file you created. 
+
+In `bin/db` create a file `kill-all` with the following contents:
+
+```bash
+# create file
+touch bin/db/kill-all
+
+# file content
+#! /usr/bin/bash
+
+CYAN='\033[1;36m'
+NO_COLOR='\033[0m'
+LABEL="Kill all open connections..."
+printf "${CYAN}== ${LABEL}${NO_COLOR}\n"
+
+ABS_PATH=$(readlink -f "$0")
+DB_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $DB_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+BACKEND_FLASK_PATH="$PROJECT_PATH/backend-flask"
+kill_path="$BACKEND_FLASK_PATH/db/kill-all-connections.sql"
+echo $kill_path
+
+psql $CONNECTION_URL cruddur < $kill_path
+```
+
+To ensure you have the right permissions to execute the newly created script, run the following commands:
+
+```bash
+# by default, you will get a permission denied when trying to run a script you just created
+# run this command to grant it permission - https://www.tutorialspoint.com/unix/unix-file-permission.htm
+chmod 555 bin/db/kill-all
+  
+# execute the script 
+./bin/db/kill-all
+```
+
+In the `kill-all` script, we made sure we didn’t do that for production, which is very important. Take note of that. 
+
+Try running the `setup` script again. If you are encountering this error, it’s probably from the path in your `update_cognito...` file. 
+
+![Image of Wrong Pathing in our Update Cognito Script](assets/wrong-pathing-in-update-cognito-script.png)
+
+To resolve that, update the `parent_path` to include `backend-flask` like so:
+
+```python
+current_path = os.path.dirname(os.path.abspath(__file__))
+parent_path = os.path.abspath(os.path.join(current_path, '..', '..','backend-flask'))
+sys.path.append(parent_path)
+```
+
+Go ahead and try running the `setup` file again; there shouldn’t be any more errors. Now to load our message data, run the dynamodb `schema-load`
+
+```bash
+./bin/ddb/schema-load
+
+# now seed data
+./bin/ddb/seed
+```
+
+If you are encountering the same error as above, `ModuleNotFoundError: No module named 'lib'`, then it is probably a path problem. Do the same thing you did to fix that by adding `backend-flask` to the `parent_path`
+
+Now go ahead and run the `ddb/seed` file again. And there should be no more errors.
+
+</p>
+</details>
+
+With the local environment running now, open up the Gitpod backend URL on the browser and append `/api/users/@bayko/short`. Make sure the user handle you are using in the URL is the one you just manually added. 
+
+If you are encountering this error page, follow the guide below to resolve it.
+
+![Image of OperationalError on User Short](assets/operational-error-on-user-short.png)
+
+<details><summary>Troubleshooting Operational Error in the User Short</summary>
+<p> 
+
+Open up your `Gitpod` frontend URL on the browser and sign in. If you are not returning any data, simply do a quick browser refresh, and now you should see some data. It could probably be a `token expired` error. 
+
+Let’s navigate to `/messages/new/bayko` and do an **Inspect** of the page. You should see a successful request on the `short`
+
+![Image of Successful Request on Short](assets/successful-request-on-short.png)
+
+Let’s try entering an errored URL, `/messages/new/bay`, you should see an error, but that’s not what it should be doing. It should be returning nothing when there’s an error. 
+
+![Image of Wrong Returned Data on Short](assets/wrong-returned-data-on-short.png)
+
+Let’s go back to our `backend-flask/lib/db.py` file and scroll down to this section of the code 
+
+```python
+# change the "{}" part 
+with self.pool.connection() as conn:
+      with conn.cursor() as cur:
+        cur.execute(wrapped_sql,params)
+        json = cur.fetchone()
+        if json == None:
+          "{}" # ------> why we have the error
+          else:
+            return json[0]
+
+# to this 
+with self.pool.connection() as conn:
+      with conn.cursor() as cur:
+        cur.execute(wrapped_sql,params)
+        json = cur.fetchone()
+        if json == None:
+          return "{}" # ------> needed a return statement
+          else:
+            return json[0]
+```
+
+Now when you enter a bad URL, you should get this instead of the `500` error.
+
+![Image of Right Returned Data on Short](assets/right-returned-data-on-short.png)
+
+</p>
+</details>
+
+<details><summary>Update Production with Changes</summary>
+<p> 
+
+Now let’s rebuild, push and deploy.
+
+```bash
+# build image 
+./bin/backend/build
+
+# push image 
+./bin/backend/push
+
+# re-deploy
+./bin/backend/deploy
+```
+
+Let’s connect to our production database 
+
+```bash
+# connect to DB
+./bin/db/connect prd
+
+# manually insert a user
+# make sure it's NOT a duplicate user 
+INSERT INTO public.users (display_name, email, handle, cognito_user_id) VALUES ('Andrew Bayko', 'bayko@test.com', 'bayko','MOCK');
+```
+
+After that insertion, give it a while and refresh your URL - `mydomain.com/messages/new/handle_of_user_just_added`; now you should see the user appear. You can also try your local URL.
+
+Make sure to do an **Inspect** to be sure there are no errors. If there is one, it could probably be an expired token, just sign out and sign back in and navigate to that URL again. Check the **Inspect** page again to be sure no errors again. Yahhhh! 🎉 no more errors. 
+
+Now let’s try sending a message to the user, that should also go through.
+
 </p>
 </details>
 
 
+### 15. Implement Refresh Token for Amazon Cognito
+
+When we make API requests, sometimes our Cognito token expires that’s because of how we built it.
+
+If you check the `CheckAuth.js` file, there is this part of the code,  `Auth.currentAuthenticatedUser({` which does not attempt to renew our token. We thought that configuration would work, but obviously, it didn’t. To fix it, we will have to wrap it in another function to make sure it gets set properly.
+
+<details><summary>Implementation</summary>
+<p> 
+
+Remember to login to ECR before you do a `docker compose up`.
+
+```bash
+./bin/ecr/login
+```
+
+Now let's set up our environment if it's not already set up. 
+
+```bash
+# start application
+docker compose up
+
+# set up DB
+./bin/db/setup
+./bin/ddb/schema-load
+./bin/ddb/seed
+```
+
+After the setup, open up your local environment - frontend and login to the app let's begin some investigation. 
+
+Let’s navigate back to our `CheckAuth.js` file and inspect it. 
+
+```js
+const checkAuth = async (setUser) => {
+  Auth.currentAuthenticatedUser({
+    // Optional, By default is false.
+    // If set to true, this call will send a 
+    // request to Cognito to get the latest user data
+    bypassCache: false
+  })
+// THIS PART IS CALLED TWICE 
+  .then((user) => {
+    console.log('user',user);
+    return Auth.currentAuthenticatedUser()
+// THIS PART IS CALLED TWICE 
+  }).then((cognito_user) => {
+      console.log('cognito_user',cognito_user);
+      setUser({
+        display_name: cognito_user.attributes.name,
+        handle: cognito_user.attributes.preferred_username
+      })
+```
+
+You would see that the user is called twice. Even in the frontend **Inspect** console, you will see that a user is called twice.
+
+![Image of CognitoUser Called Twice](assets/cognito-user-called-twice.png)
+
+Let’s update our code to remove any redundancies 
+
+```jsx
+const checkAuth = async (setUser) => {
+  Auth.currentAuthenticatedUser({
+    // Optional, By default is false.
+    // If set to true, this call will send a 
+    // request to Cognito to get the latest user data
+    bypassCache: false
+  })
+  .then((cognito_user) => {
+    console.log('cognito_user',cognito_user);
+    setUser({
+        display_name: cognito_user.attributes.name,
+        handle: cognito_user.attributes.preferred_username
+      })
+    return Auth.currentSession()
+  }).then((cognito_user) => {
+      console.log('cognito_user_session',cognito_user_session);
+      localStorage.setItem("access_token", cognito_user_session.accessToken.jwtToken)
+  })
+  .catch((err) => console.log(err));
+```
+
+Apparently, we need to do this every time we make API calls to make sure our tokens are fresh. So we will probably wrap this around another function. 
+
+In your `CheckAuth.js` file, let’s create another function called `getAccessToken`
+
+```jsx
+const getAccessToken = async () => {
+  Auth.currentSession()
+  .then((cognito_user_session) => {
+    localStorage.setItem("access_token", cognito_user_session.accessToken.jwtToken);
+    return localStorage.getItem("access_token")
+    
+  })   
+  .catch((err) => console.log(err));
+}
+```
+
+Now let’s pass along our new function, `getAccessToken` in our `HomeFeedPage.js` file
+
+```jsx
+// REMOVE THIS 
+import checkAuth from '../lib/CheckAuth';
+
+// ADD THIS
+import {checkAuth, getAccessToken} from 'lib/CheckAuth';
+
+// UPDATE THIS SECTION with the below information
+  const loadData = async () => {
+    try {
+      const backend_url = `${process.env.REACT_APP_BACKEND_URL}/api/activities/home`
+      const access_token = getAccessToken()
+      console.log('access_token',access_token)
+      const res = await fetch(backend_url, {
+        headers: {
+          Authorization: `Bearer ${access_token}`
+        },
+        method: "GET"
+      });
+```
+
+Let’s test it out in our `dev` environment - the local web app in `Gitpod`. 
+
+- Simply open up your frontend in the browser. If you are getting this error, follow the guidelines to resolve it.
+
+![Image of Unhandled Thrown Error](assets/unhandled-thrown-error.png)
+
+- Make the following update to your `CheckAuth.js` file:
+
+```jsx
+// Replace the "const" with "export async function"
+export async function getAccessToken(){
+  Auth.currentSession()
+  .then((cognito_user_session) => {
+    localStorage.setItem("access_token", cognito_user_session.accessToken.jwtToken);
+    return localStorage.getItem("access_token")
+    
+  })   
+  .catch((err) => console.log(err));
+}
+
+export async function checkAuth(setUser){
+  Auth.currentAuthenticatedUser({
+    // Optional, By default is false.
+    // If set to true, this call will send a 
+    // request to Cognito to get the latest user data
+    bypassCache: false
+  })
+  .then((cognito_user) => {
+    console.log('cognito_user',cognito_user);
+    setUser({
+        display_name: cognito_user.attributes.name,
+        handle: cognito_user.attributes.preferred_username
+      })
+    return Auth.currentSession()
+  }).then((cognito_user) => {
+      console.log('cognito_user_session',cognito_user_session);
+      localStorage.setItem("access_token", cognito_user_session.accessToken.jwtToken)
+  })
+  .catch((err) => console.log(err));
+```
+
+Go ahead and refresh your browser, and now we should be displaying our normal page. If you still get errors, try to replace every instance of `import CheckAuth` with `import {checkAuth}`. This should be located in the files under the `pages` directory and reload afterward. 
+
+Take a look at your **Inspect** page and verify that there are no more errors. If you see an `access token undefined` error, follow the guidelines below to resolve it. 
+
+- Go ahead and replace the code again in your `CheckAuth.js` file
+
+```jsx
+import { Auth } from 'aws-amplify';
+import { resolvePath } from 'react-router-dom';
+
+export async function getAccessToken(){
+  Auth.currentSession()
+  .then((cognito_user_session) => {
+    const access_token = cognito_user_session.accessToken.jwtToken
+    localStorage.setItem("access_token", access_token)
+  })
+  .catch((err) => console.log(err));
+}
+
+export async function checkAuth(setUser){
+  Auth.currentAuthenticatedUser({
+    // Optional, By default is false. 
+    // If set to true, this call will send a 
+    // request to Cognito to get the latest user data
+    bypassCache: false 
+  })
+  .then((cognito_user) => {
+    console.log('cognito_user',cognito_user);
+    setUser({
+      display_name: cognito_user.attributes.name,
+      handle: cognito_user.attributes.preferred_username
+    })
+    return Auth.currentSession()
+  }).then((cognito_user_session) => {
+      console.log('cognito_user_session',cognito_user_session);
+      localStorage.setItem("access_token", cognito_user_session.accessToken.jwtToken)
+  })
+  .catch((err) => console.log(err));
+};
+
+export default checkAuth;
+```
+
+- Search for the word `Authorization` and add these lines of codes to it
+
+```jsx
+// add at the top
+import {getAccessToken} from '../lib/CheckAuth';
+// if there is for "checkAuth" just combine like this
+import {checkAuth, getAccessToken} from '../lib/CheckAuth';
+
+// add above "const res = await fetch..."
+await getAccessToken()
+const access_token = localStorage.getItem("access_token")
+
+// in the "headers" section where it says "Authorization"
+'Authorization': `Bearer ${access_token}`
+```
+
+Go ahead and refresh your browser again, and now everything should be in good shape.
+
+</p>
+</details>
+
+
+### 16. Configure Task Definitions to contain X-ray and Turn on Container Insights
+
+Using AWS X-ray will give us more observability in our Fargate service, and it’s easier. Let’s go ahead and add that to our task definitions.
+
+<details><summary>Configure Task Definitions to contain X-ray</summary>
+<p> 
+
+In your `aws/task-definitions/backend-flask.json` file, add these lines of code under the `containerDefinitions` section:
+
+```json
+{
+        "name": "xray",
+        "image": "public.ecr.aws/xray/aws-xray-daemon",
+        "essential": true,       
+        "user": "1337",
+        "portMappings": [
+          {
+            "name": "xray",
+            "containerPort": 2000,
+            "protocol": "udp"
+          }
+        ]        
+      },
+```
+
+Since we added additional configuration to the `task-definition`, we have to register the task again. To avoid always going to copy the code, let’s just create a script to make our lives easier. 
+
+In the `bin/backend/` folder, create a file `register`:
+
+```bash
+# create file
+touch bin/backend/register
+touch bin/frontend/register
+
+# FILE content 
+
+# BACKEND
+#! /usr/bin/bash
+ABS_PATH=$(readlink -f "$0")
+BACKEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $BACKEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+TASK_DEF_PATH="$PROJECT_PATH/aws/task-definitions/backend-flask.json"
+
+echo $TASK_DEF_PATH
+
+aws ecs register-task-definition \
+--cli-input-json "file://$TASK_DEF_PATH"
+
+#FRONTEND
+#! /usr/bin/bash
+
+ABS_PATH=$(readlink -f "$0")
+FRONTEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $FRONTEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+TASK_DEF_PATH="$PROJECT_PATH/aws/task-definitions/frontend-react-js.json"
+
+echo $TASK_DEF_PATH
+
+aws ecs register-task-definition \
+--cli-input-json "file://$TASK_DEF_PATH"
+```
+
+To ensure you have the right permissions to execute the newly created script, run the following commands:
+
+```bash
+# by default, you will get a permission denied when trying to run a script you just created
+# run this command to grant it permission - https://www.tutorialspoint.com/unix/unix-file-permission.htm
+chmod 555 bin/backend/register
+chmod 555 bin/frontend/register
+  
+# execute the script 
+./bin/backend/register
+./bin/frontend/register
+```
+
+Taking a look at our previous scripts in the `bin/` directory, here are a couple of changes to make. 
+
+```bash
+# backend/build
+ABS_PATH=$(readlink -f "$0")
+BACKEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $BACKEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+BACKEND_FLASK_PATH="$PROJECT_PATH/backend-flask"
+
+# frontend/build
+ABS_PATH=$(readlink -f "$0")
+FRONTEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $FRONTEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+FRONTEND_REACT_JS_PATH="$PROJECT_PATH/frontend-react-js"
+```
+
+Now let’s trigger a new deployment so our updates can be implemented. This is just for the `backend`
+
+```bash
+./bin/backend/deploy
+```
+
+Go to your AWS console to observe your latest deployment by navigating to the **ECS** service and clicking on the `backend-flask` service. 
+
+- Make sure you check out how many containers it’s running - specifically, check for the x-ray container.
+
+If the newest container, **x-ray** isn’t showing up, go back to your CLI to confirm you have the latest running. 
+
+In your **Terminal**, run these commands below:
+
+```bash
+TASK_DEFINITION_FAMILY="backend-flask"
+aws ecs describe-task-definition \
+--task-definition $TASK_DEFINITION_FAMILY \
+--query 'taskDefinition.taskDefinitionArn' \
+--output text
+```
+
+Compare the tag number to the one running in the console (revision number) to be sure they are the same number. **If not**, go ahead and deploy again; hopefully, this time, it resolves the issue. 
+
+```bash
+./bin/backend/deploy
+```
+
+Go back to the console and confirm your deployment again. 
+
+Deployment passed this time and with the right revision number, but our `x-ray` container is coming back with `unknown` health status. Also, our `backend-flask` is returning an `unhealthy` health status as well. 
+
+Now, let’s troubleshoot these health checks.
+
+<details><summary>Troubleshooting Health Check Errors</summary>
+<p> 
+
+To troubleshoot this problem, let’s have a look at our logs 
+
+According to our logs, we find out that our tasks are returning a `200` status and passing our `api/health-check`. Not sure why we are still having an `unhealthy` health status. 
+
+Let’s try forcing a new deployment from the console. 
+
+Seems like the new deployment is having the same error as well. 
+
+![Image of Same Error with New Deployment](assets/same-error-with-new-deployment.png)
+
+Let’s go back to our CLI and remove the x-ray definition we added in our `backend-flask` task definitions. Hopefully, this will revert our deployment to a `healthy` status. 
+
+- Go ahead and re-register the task and deploy
+
+NOPE!!! We are still having the same error of `Task failed container health checks`
+
+![Image of Task failed container health checks](assets/task-failed-container-health-checks.png)
+
+Looks like adding our x-ray definition didn’t cause any problems. Let’s go ahead and add back our x-ray definition and debug the issue locally. We want to test our health checks locally.
+
+- First, let’s build our image locally
+
+```bash
+./bin/backend/build
+```
+
+- Then start up your application with `docker compose` for select services, `db` and `dynamodb-local`
+  
+- Set up our data
+
+```bash
+./bin/db/setup
+```
+
+- Start the backend production locally
+
+```bash
+# create file 
+touch bin/backend/run
+
+# FILE CONTENT
+#! /usr/bin/bash
+
+docker run --rm \
+  -p 4567:4567
+  -it backend-flask-prod 
+```
+
+To ensure you have the right permissions to execute the newly created script, run the following commands:
+
+```bash
+# by default, you will get a permission denied when trying to run a script you just created
+# run this command to grant it permission - https://www.tutorialspoint.com/unix/unix-file-permission.htm
+chmod 555 bin/backend/run
+  
+# execute the script 
+./bin/backend/run
+```
+
+Running the new script will cause some errors because it’s missing environment variables. Instead of having to load our environment variables one at a time every time, let’s create a `.env` file in our root project.
+
+In the root of our workspace, create the files `.env.backend-flask` and `.env.frontend-react-js`. For these files, we will cut all of our env vars from our `docker-compose.yml` and paste them into their respective `.env` file. 
+
+```bash
+# .env.backend-flask
+# REPLACE the ":" with "="
+
+# .env.frontend-react-js
+# REPLACE the ":" with "="
+```
+
+Remember to update your `docker-compose.yml` to point to the new `.env` files. 
+
+```yaml
+services:
+  backend-flask:
+    env_file:
+      - .env.backend-flask
+
+  frontend-react-js:
+    env_file:
+      - .env.frontend-react-js
+```
+
+Let’s go back and update the `run` script we created earlier to call our env vars file. 
+
+```bash
+#! /usr/bin/bash 
+
+ABS_PATH=$(readlink -f "$0")
+BACKEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $BACKEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+ENVFILE_PATH="$PROJECT_PATH/.env.backend-flask"
+
+docker run --rm \
+  --env-file $ENVFILE_PATH \
+  --publish 4567:4567 \
+  -it backend-flask-prod
+```
+
+Let’s test out our new configuration with our env vars. Go ahead and `docker compose down` your environment and start it up again, `docker compose up`. 
+
+In your backend container, attach a shell to check if your environment variables are coming back as expected. Simply run an `env` command in the shell. 
+
+- Make sure your `BACKEND_URL` and `FRONTEND_URL` have the right URLs locally
+
+After checking and making sure our variables are coming back as expected, `docker compose down` and do a `docker compose up` for selected services, `db`, `dynamodb-local` and `xray-daemon`. 
+
+Ensure you have seeded data by running the `setup` script. 
+
+```bash
+./bin/db/setup
+
+# start up backend production locally
+./bin/backend/run
+```
+
+After starting up the backend production locally, we see an `xray-daemon` error show up like so:
+
+![Image of Errored Xray Daemon](assets/errored-xray-daemon.png)
+
+Trying to debug this error, we figured out that the problem is from how the network is handled in containers. Since `xray` runs as its own container, it uses `localhost` as its network instead of what has been defined for it. 
+
+First of all, let’s look at the list of networks we have.
+
+```bash
+docker network list
+```
+
+We see that there’s a default that is always created. If you do a `docker compose down`, you will see that the `aws-bootcamp.._default` disappears. 
+
+Ignore the `cruddur-net` you can choose to create it or not, but it doesn’t do anything for us here.
+
+![Image of List of Docker Networks](assets/list-of-docker-images.png)
+
+```bash
+docker network create cruddur-net
+```
+
+In your `docker-compose.yml` file, edit the `networks` section with this:
+
+```yaml
+networks: 
+  default:
+    driver: bridge
+    name: cruddur-net
+```
+
+With this modification, update your run script with the following:
+
+```bash
+#! /usr/bin/bash 
+
+ABS_PATH=$(readlink -f "$0")
+BACKEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $BACKEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+ENVFILE_PATH="$PROJECT_PATH/.env.backend-flask"
+
+docker run --rm \
+  --env-file $ENVFILE_PATH \
+  --network cruddur-net \
+  --publish 4567:4567 \
+  -it backend-flask-prod
+```
+
+Now do a `docker compose down` and up again for the selected services, `db`, `xray-daemon`, and `dynamodb-local`. After that, seed your database again using the `setup` script. 
+
+All these updates still don’t help out our previous error message because we are still getting the same problem. 
+
+Investigating further, we determine that the problem is how we pass our environment variables. To fix this, we have to generate our environment variables each time our environment loads, but that’s kind of frustrating. So we will be using `ruby` to generate our env variables.
+
+<details><summary>Generate env vars using Ruby</summary>
+<p> 
+
+We start by creating a ruby script.
+
+### Backend
+
+In your `bin/backend/` directory, create a file `generate-env`
+
+```ruby
+#!/usr/bin/env ruby
+
+require 'erb'
+
+template = File.read '.env.backend-flask.erb'
+script_content = ERB.new(template).result(binding)
+```
+
+The above script is going to read the environment variable from the file, `.env.backend-flask.erb`. 
+
+In the root of the project, create a file `.env.backend-flask.erb` 
+
+```bash
+touch .env.backend-flask.erb
+```
+
+Here is the content of the file:
+
+```bash
+# copy the content of the ".env.backend-flask" file 
+# make sure to follow the format and syntax for ruby
+# replace "${" with " <%= ENV[' " and "}" to " '] %>"
+# also uncomment some of the lines 
+```
+
+Now let’s make sure Ruby knows exactly where the file is so it can render the right one. Go ahead and update your `generate-env` file with the following:
+
+```ruby
+#!/usr/bin/env ruby
+
+require 'erb'
+
+template = File.read '.env.backend-flask.erb'
+content = ERB.new(template).result(binding)
+filename = ".env.backend-flask"
+File.write(filename, content)
+```
+
+You can now go ahead and delete the `.env.backend-flask` as it is no longer needed. 
+
+To properly organize our files, create a folder, `erb`, in the root of the project and move the `.env.backend-flask.erb` into the new folder. 
+
+```bash
+# create directory
+mkdir erb
+
+# move file to new folder
+mv .env.backend-flask.erb erb/
+```
+
+Don’t forget to edit the path in the `generate-env` file.
+
+```bash
+#!/usr/bin/env ruby
+
+require 'erb'
+
+template = File.read 'erb/.env.backend-flask'
+content = ERB.new(template).result(binding)
+filename = ".env.backend-flask.erb"
+File.write(filename, content)
+```
+
+To ensure you have the right permissions to execute the newly created script, run the following commands:
+
+```bash
+# by default, you will get a permission denied when trying to run a script you just created
+# run this command to grant it permission - https://www.tutorialspoint.com/unix/unix-file-permission.htm
+chmod 555 bin/backend/generate-env
+  
+# execute the script 
+./bin/backend/generate-env
+```
+
+### Frontend
+
+Let’s go ahead and create an env vars file for our frontend. 
+
+In your `erb/` directory, create a file, `.env.frontend-react-js.erb`, and copy the content of the `.env.frontend-react-js` into it. Make sure you update the format and syntax to `ruby`'s.
+
+```bash
+touch erb/.env.frontend-react-js.erb
+
+# make sure to edit syntax
+```
+
+In your `bin/frontend/` directory, create a file `generate-env`
+
+```bash
+#!/usr/bin/env ruby
+
+require 'erb'
+
+template = File.read 'erb/.env.frontend-react-js.erb'
+content = ERB.new(template).result(binding)
+filename = '.env.frontend-react-js.erb'
+File.write(filename, content)
+```
+
+Because our `.gitignore` file is set to ignore `.env` files, we will need to change the names of our env vars files. 
+
+```bash
+mv erb/.env.backend-flask erb/backend-flask.env.erb
+mv erb/.env.frontend-react-js.erb erb/frontend-react-js.env.erb
+```
+
+Update the `generate-env` files of both `backend` and `frontend` to reflect the new filenames. 
+
+```bash
+# backend
+
+#!/usr/bin/env ruby
+
+require 'erb'
+
+template = File.read 'erb/backend-flask.env.erb'
+content = ERB.new(template).result(binding)
+filename = "backend-flask.env"
+File.write(filename, content)
+
+# frontend
+
+#!/usr/bin/env ruby
+
+require 'erb'
+
+template = File.read 'erb/frontend-react-js.env.erb'
+content = ERB.new(template).result(binding)
+filename = 'frontend-react-js.env'
+File.write(filename, content)
+```
+
+To ensure you have the right permissions to execute the newly created script, run the following commands:
+
+```bash
+# by default, you will get a permission denied when trying to run a script you just created
+# run this command to grant it permission - https://www.tutorialspoint.com/unix/unix-file-permission.htm
+chmod 555 bin/frontend/generate-env
+  
+# execute the script 
+./bin/frontend/generate-env
+```
+
+### Updates
+
+Now, to ensure that these variables are available and accessible when we spin up our workspace, we add them to our `gitpod.yml` file. 
+
+```yaml
+# in the frontend section
+- name: react-js
+    command: |
+      ruby "$THEIA_WORKSPACE_ROOT/bin/frontend/generate-env"
+			cd frontend-react-js
+			npm i
+
+# in the backend section
+- name: flask 
+    command: |
+      ruby "$THEIA_WORKSPACE_ROOT/bin/backend/generate-env"
+			cd backend-flask
+			pip install -r requirements.txt
+```
+
+Remember to update your `docker-compose.yml` file with the latest environment variable files. 
+
+```yaml
+# frontend 
+frontend-react-js:
+    env_file:
+      - frontend-react-js.env
+
+# backend
+backend-flask:
+    env_file:
+      - backend-flask.env
+```
+
+Also, update your `bin/backend/run` file:
+
+```bash
+#! /usr/bin/bash 
+
+ABS_PATH=$(readlink -f "$0")
+BACKEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $BACKEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+ENVFILE_PATH="$PROJECT_PATH/backend-flask.env"
+
+docker run --rm \
+  --env-file $ENVFILE_PATH \
+  --network cruddur-net \
+  --publish 4567:4567 \
+  -it backend-flask-prod
+```
+
+Go ahead and create one for the frontend as well.
+
+In `bin/frontend` folder, create a file, `run` with the following content:
+
+```bash
+touch bin/frontend/run
+
+# FILE CONTENT
+
+#! /usr/bin/bash 
+
+ABS_PATH=$(readlink -f "$0")
+BACKEND_PATH=$(dirname $ABS_PATH)
+BIN_PATH=$(dirname $BACKEND_PATH)
+PROJECT_PATH=$(dirname $BIN_PATH)
+ENVFILE_PATH="$PROJECT_PATH/frontend-react-js.env"
+
+docker run --rm \
+  --env-file $ENVFILE_PATH \
+  --network cruddur-net \
+  --publish 4567:4567 \
+  -it frontend-react-js-prod
+```
+
+You can shell into both environments to ensure their environment variables are set properly by running the `env` command. 
+
+Let’s also update our docker networks in our `docker-compose.yml` file. 
+
+```yaml
+networks: 
+  cruddur-net:
+    driver: bridge
+    name: cruddur-net
+
+# Still in the file, explicitly add the network "cruddur-net" for each service. 
+```
+
+To see the IP addresses of your docker containers, run this command:
+
+```yaml
+docker network inspect cruddur-net
+```
+
+Now try running `./bin/backend/run` command, and if you are still getting the error, do these:
+
+- remove the double quotes `"` in the `.env.erb` files. It doesn’t like double quotes around the environment variables.
+  
+- now regenerate those environment variables again by running `./bin/backend/generate-env` and `./bin/frontend/generate-env`
+  
+- manually create the `cruddur-net` network if you don’t have it created already
+
+```bash
+docker network create cruddur-net
+```
+
+- manually build the `backend-flask-prod` image if it doesn’t exist
+
+```bash
+./bin/backend/build
+```
+
+- now try this command again, `./bin/backend/run` it should go through now.
+
+</p>
+</details>
+
+Now let’s try our `run` script again, `./bin/backend/run`.
+
+We seem to be still getting the same errors again.
+
+![Image of Errored Xray Daemon Again](assets/errored-xray-daemon-again.png)
+
+<details><summary>Using BusyBox to Debug Connection Error</summary>
+<p> 
+
+Since we have our environment variables properly set, let’s create a `busybox` to debug our connection error.
+
+In the `bin` directory, create a file, `busybox`.
+
+```bash
+# create file
+touch bin/busybox
+
+# FILE CONTENT 
+
+#! /usr/bin/bash 
+
+docker run --rm \
+  --network cruddur-net \
+  --publish 4567:4567 \
+  -it busybox
+```
+
+To ensure you have the right permissions to execute the newly created script, run the following commands:
+
+```bash
+# by default, you will get a permission denied when trying to run a script you just created
+# run this command to grant it permission - https://www.tutorialspoint.com/unix/unix-file-permission.htm
+chmod 555 bin/busybox
+  
+# execute the script 
+./bin/busybox
+```
+
+Let’s check the connection information of our `busybox`. Be careful looking; it is always given a funny name.
+
+```bash
+docker network inspect cruddur-net
+```
+
+Now shell into the container to troubleshoot.
+
+Inside the container, ping `xray` to be sure it’s running. 
+
+```bash
+ping xray-daemon
+
+telnet xray-daemon 2000
+# If it connected successfully, it means the address, "2000," is correct, and 
+# the hostname, "xray-daemon," is resolving. 
+```
+
+![Image of Xray Successful Connection](assets/xray-successful-connection.png)
+
+After troubleshooting, go ahead and `exit` the container.
+
+</p>
+</details>
+
+Using `busybox`, we realized that our connection works perfectly well. 
+
+So to troubleshoot our production the way we did our `busybox`, we have to temporarily install `ping` and `telnet` in our `prd` environment.
+
+<details><summary>Debugging Production Connection</summary>
+<p> 
+
+In the `backend-flask/Dockerfile.prod` file, let’s add these few lines of code to it:
+
+```bash
+# ADD after the first line, "FROM"
+
+# [TODO] For debugging, don't leave these in
+RUN apt-get update =y
+RUN apt-get install iputils-ping -y
+# -------------
+```
+
+Now we have to rebuild our image. 
+
+```bash
+./bin/backend/build
+```
+
+To shell into our backend production, let’s add `/bin/bash` at the end of our `-it` flag in our frontend `run` script. 
+
+```bash
+./bin/backend/run
+```
+
+Inside the container, run these commands, `ping google.com` and `ping xray-daemon`, to ensure a connection is established. 
+
+Hmmm, what could be the problem? 🤔
+
+In our `run` script, let’s explicitly call our backend environment variables like so:
+
+```bash
+# try this
+docker run --rm \
+	--env ...\
+	--env ...\
+	--env ...\
+	--network cruddur-net \
+	--publish 4567:4567 \
+	-it backend-flask-prod
+```
+
+That seems to be working. That means our problem is from our environment variables. 
+
+Finally, we know what the problem is → the env variables generated have quotations around them, whereas the ones we see when we shell into the container do not have any quotations. So now we know the double quotations in our env vars should be removed. 
+
+For a permanent fix, let’s update our `.env.erb` files to remove the single and double quotations around the values. You can now go ahead and delete any other `.env` file that we no longer need. 
+
+After the modifications to the env vars files, let’s go ahead and regenerate our environment variables again by using our `generate-env` respective script files. 
+
+To ensure everything works, do a `docker compose down` if you had your environment up before. Then a `docker compose up` so our updates are reflected. Yeah!!! Everything works just fine now. 🎉
+
+Now we fixed the connection error, go ahead and comment on the command we added earlier to install `ping` in our `backend-flask/Dockerfile.prod` file.
+
+</p>
+</details>
+
+Back to debugging our health-check problems. 
+
+Navigate to your `aws/task-definitions/backend-flask.json` file, under the `healthCheck` section for the `backend-flask`; you will realize that our path is pointing to the wrong place. This is because we didn’t adjust the path when we moved our `bin` directory. 
+
+To fix this, let’s create a `bin` folder in our `backend-flask` and then move our health check script to a new path.
+
+![Image of Health Check Pathing](assets/health-check-pathing.png)
+
+```bash
+# create directory
+mkdir backend-flask/bin
+
+# move the files
+mv bin/flask/health-check backend-flask/bin/health-check
+```
+
+Now go ahead and modify that path in your task definitions file. 
+
+```json
+// replace with this
+"python /backend-flask/bin/health-check"
+```
+
+With our updated task definitions file, let’s rebuild the backend image and push.
+
+```bash
+# build image
+./bin/backend/build
+
+# push image
+./bin/backend/push
+```
+
+Now, let’s register our tasks again. 
+
+Hmm, we are getting an `AccessDeniedException` when calling the `RegisterTaskDefinition` operation. Investigating this issue revealed that AWS locked us out of our account because we mistakenly committed our code that revealed our `AWS_ACCESS_KEY` and `AWS_SECRET_KEY`. So what AWS did was create a policy called `AWSCompromisedKeyQuarantineV2`, which locked us out of our account. 
+
+To fix this, delete the policy from your account as a root user and rotate your `ACCESS_KEY`
+
+When you change your access key, remember to export it back to your Gitpod using the `export` and `gp env` command. 
+
+After resolving that issue, go ahead and register your backend task again.
+
+```bash
+./bin/backend/register
+./bin/backend/build
+./bin/backend/push
+./bin/backend/deploy
+```
+
+Go to your AWS console to confirm that your `backend-flask` task deployed successfully. 
+
+Hmm, it shows that our `backend-flask` is returning an `unhealthy` health status. Let’s go and update our `timeout` code from `15` to `5` seconds and see what happens. 
+
+```json
+"interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+```
+
+Due to the update, re-register your task definition 
+
+```bash
+./bin/backend/register
+./bin/backend/build
+./bin/backend/push
+./bin/backend/deploy
+```
+
+Check your AWS console again to ensure everything is deployed successfully. But if you check the `xray` container, you realize that it has an `unknown` health status. That is because we don’t have a way of adding a health check to it due to the fact that `curl` is not installed in the default container, which is needed to do a health check. 
+
+Talking about `xray`, make sure it is added to the `containerDefinitions` in your frontend task definition. 
+
+```json
+"containerDefinitions": [
+      {
+        "name": "xray",
+        "image": "public.ecr.aws/xray/aws-xray-daemon",
+        "essential": true,       
+        "user": "1337",
+        "portMappings": [
+          {
+            "name": "xray",
+            "containerPort": 2000,
+            "protocol": "udp"
+          }
+        ]        
+      },
+```
+
+Now register the task, push, and deploy. 
+
+```bash
+./bin/frontend/register
+./bin/frontend/build
+./bin/frontend/push
+./bin/frontend/deploy
+```
+
+Check your AWS console to be sure everything is deployed successfully for the frontend.
+
+</p>
+</details>
+
+</p>
+</details>
+
+<details><summary>Turn on Container Insights</summary>
+<p> 
+
+- Navigate to your cluster in ECS and select it.
+  
+- Click the **Update cluster**
+  
+- Expand the **Monitoring** section and turn on `Container Insights`.
+
+We should have that ready to collect data for us. Over time as we work along the project, logs will be generated for us. 
+
+![Image of Container Insights Configuration](assets/container-insights-configuration.png)
+
+You can go ahead and test your domain name to be sure it works. Make sure you are logged in. Check the `Home` and `Messages` (new message) pages.
+
+</p>
+</details>
+
+### Miscellaneous
+
+To not incur charges on your ECS services, edit/update your service to accept `Desired tasks` as `0` instead of `1`. 
+
+So, when stopped, another task doesn’t get started. This will reduce your spending. 
+
+<details><summary>To be able always to send messages in PRD</summary>
+<p> 
+
+The users in your RDS production database have to match your local. And their `cognito_user_ids` should always be populated with the right `sub` ID on your AWS Cognito console. 
+
+Also, make sure you have a `DynamoDB` created for production. Navigate to the `DynamoDB` service and confirm. 
+
+If not created, run this command to create it
+
+```bash
+./bin/ddb/schema-load prd
+```
+
+Go over to your AWS DynamoDB console to confirm it’s created. 
+
+Another thing to check for, make sure your `cognito_user_ids` in the production DB doesn't say `MOCK`. That means you seeded your production data which shouldn't be. It should consist of real data. 
+
+To rectify that mistake, 
+
+- Delete all users in the AWS Cognito console, so you can recreate them through the Cruddur UI
+  
+- Delete the local/seed data you have in production; it shouldn’t be so
+  
+    - **Never run seed data for production**
+      
+- Go to your `Gitpod` and run the following commands
+
+```bash
+# connect to prd database
+./bin/db/connect prd
+
+# delete the seed data in our prd 
+# This command just deletes the data, not the table 
+truncate users;
+
+# confirm data is deleted 
+select * from users;
+```
+
+Now go to your Cruddur UI and sign up those users again. 
+
+</p>
+</details>
 
