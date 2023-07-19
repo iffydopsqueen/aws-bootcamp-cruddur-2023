@@ -54,7 +54,7 @@ chmod 555 backend-flask/bin/db/test
 </p>
 </details>
 
-<details><summary>Install Boto3</summary>
+<details><summary>Health Check</summary>
 <p> 
 
 Now let's do a health check for our `Flask` app. We'll add the following endpoint in our `app.py` file. This could be added at the top or bottom of where the other endpoints go, your preference. 
@@ -2004,7 +2004,7 @@ In your `aws/json/task-definitions/backend-flask.json` file, edit your `FRONTEND
 
 Now let’s add these changes to our ECS by re-registering it:
 
-```json
+```bash
 aws ecs register-task-definition --cli-input-json file://aws/task-definitions/backend-flask.json
 ```
 
