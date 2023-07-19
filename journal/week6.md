@@ -581,7 +581,7 @@ Confirm in your AWS console by navigating to your ECS service and clicking `task
 </p>
 </details>
 
-<details><summary>Create `backend-flask` service</summary>
+<details><summary>Create the Backend Service</summary>
 <p> 
   
 Now, we can create our `backend-flask` service. Let's use the CLI to deploy this service. Remember it is your choice to either create it through the console or CLI. 
@@ -729,7 +729,7 @@ After the modifications, try recreating the roles and creating the service again
 
 After that permissions issue has been resolved, go over to your AWS console to confirm the service is created and the task in it is `running` successfully. If the `health-check` status is still `unknown`, let’s follow the steps below to resolve it.
 
-<details><summary>Troubleshooting ECS `unknown` health check</summary>
+<details><summary>Troubleshooting ECS Unknown Health Check</summary>
 <p> 
 
 We need to download a session manager plugin to enable us to shell into our container. To make that easy for us, add this to your `gitpod.yml` file to install it for us on startup. 
@@ -769,7 +769,268 @@ aws ecs list-tasks --cluster cruddur
 
 I keep getting this error:
 
+![Image of Execute-Command Error](assets/execute-command-error.png)
 
+```bash
+aws ecs update-service --force-new-deployment --cluster cruddur --task-definition backend-flask --service backend-flask --enable-execute-command
+```
+
+<details><summary>Script to Connect to the backend service Container</summary>
+<p> 
+
+In the `backend-flask/bin/` directory, create a folder `ecs` with a file `connect-to-service`:
+
+```bash
+# create folder 
+mkdir backend-flask/bin/ecs
+
+# create file
+touch backend-flask/bin/ecs/connect-to-service
+```
+
+Content of the `connect-to-service` file:
+
+```bash
+#! /usr/bin/bash
+
+if [ -z "$1" ]; then
+  echo "No TASK_ID argument supplied eg ./bin/ecs/connect-to-service 99b2f8953616495e99545e5a6066fbb5d backend-flask"
+  exit 1
+fi
+TASK_ID=$1
+
+if [ -z "$2" ]; then
+  echo "No CONTAINER_NAME argument supplied eg ./bin/ecs/connect-to-service 99b2f8953616495e99545e5a6066fbb5d backend-flask"
+  exit 1
+fi
+CONTAINER_NAME=$2
+
+echo "TASK ID : $TASK_ID"
+echo "Container Name: $CONTAINER_NAME"
+
+aws ecs execute-command  \
+--region $AWS_DEFAULT_REGION \
+--cluster cruddur \
+--task $TASK_ID \
+--container $CONTAINER_NAME \
+--command "/bin/bash" \
+--interactive
+```
+
+To ensure you have the right permissions to execute the newly created script, run the following commands:
+
+```bash
+# By default, you will get permission denied when trying to run a script you just created
+# run this command to grant it permission - https://www.tutorialspoint.com/unix/unix-file-permission.htm
+chmod 555 backend-flask/bin/ecs/connect-to-service
+
+# execute the script 
+./backend-flask/bin/ecs/connect-to-service
+```
+
+</p>
+</details>
+
+Inside your backend container, run the command below to confirm the `health-check` status of the app server.
+
+```bash
+# check the status of the application server
+./bin/flask/health-check
+```
+
+![Image of a Successful Health Check using Execute-Command](assets/successful-health-check-with-execute-cmd.png)
+
+After confirming the server is running, go into your AWS console and refresh. It should have a **green checkmark** that says `healthy`. 
+
+![Image of a Healthy Task on ECS Console](assets/healthy-task-on-ecs-console.png)
+
+</p>
+</details>
+
+Now let's try out our configuration in the browser. In the ECS service console, navigate to the **Configurations** tab, then select the `task`. You should now see a **public IP**, go ahead and copy that and then append `:4567` to see if you can access the backend. If you are not able to access the backend, follow these steps to resolve it. 
+
+- In the AWS console, navigate to the security group attached to the ECS service. Go ahead and edit it. Change the `security group rule ID` to have a **Custom TCP** with port range `4567` and source as **Anywhere**.
+  
+- You can also check to see if a **Network Interface**(eni) was created for your ECS service.
+
+Now try out the URL again; it should work. 
+
+- `public IP:4567`
+
+- You can also check the health status by appending the `health-check` endpoint like `public IP:4567/api/health-check`. 
+
+</p>
+</details>
+
+<details><summary>Update RDS Security Group</summary>
+<p> 
+
+Let’s make sure our security group, `CRUD_SERVICE_SG` has access to our RDS instance. 
+
+First, we have to modify the security group, and create a connection script that tests out our connection inside the ECS service containers. 
+
+```python
+# create test file 
+touch backend-flask/bin/db/test
+
+# file content 
+
+#!/usr/bin/env python3
+import psycopg
+import os
+import sys
+
+connection_url = os.getenv("CONNECTION_URL")
+
+conn = None
+try:
+  print('attempting connection')
+  conn = psycopg.connect(connection_url)
+  print("Connection successful!")
+except psycopg.Error as e:
+  print("Unable to connect to the database:", e)
+finally:
+  conn.close()
+```
+
+Before implementing this solution, try typing the public IP of your ECS container (IP:4567) and then append `/api/activities/home`. You shouldn’t be getting any results displayed. 
+
+Our RDS instance uses the default SG, so we should add another inbound rule to accept our `CRUD_SERVICE_SG` used for our ECS services.
+
+For our default security group (which is the one connected to our RDS instance)
+
+- Add a new rule,
+- Add **Type** as `PostgreSQL`
+- Source as `Custom` and then select the security group of your ECS service
+- By choice, you can add a **Description** as `ECS-CruddurServices`
+
+After the modification, shell back into your ECS `backend-flask` service container. 
+
+```bash
+# get task_ID
+aws ecs list-tasks --cluster cruddur
+
+# connect to task container
+./backend-flask/bin/ecs/connect-to-service 317d3a2c18044cc18beb1238323ba1b2 backend-flask
+```
+
+Inside the container, run this script to ensure we have a database connection. 
+
+```bash
+./bin/db/test
+```
+
+You should have a **Connection successful!** message displayed.
+
+![Image of Connection Successful for RDS](assets/connection-successful-for-RDS.png)
+
+Now, try typing the public IP of your ECS container `(IP:4567)` again and appending `/api/activities/home`. You should get some JSON back. 
+
+</p>
+</details>
+
+<details><summary>Add a Service Connect Configuration</summary>
+<p> 
+
+In the `aws/json/service-backend-flask.json` file, make these modifications to add the `service-connect` configurations.
+
+```json
+{
+  "cluster": "cruddur",
+  "launchType": "FARGATE",
+  "desiredCount": 1,
+  "enableECSManagedTags": true,
+  "enableExecuteCommand": true,
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "assignPublicIp": "ENABLED",
+      "securityGroups": [
+        "sg-04bdc8d5443cc8283" // replace with yours
+      ],
+      "subnets": [
+        // replace with yours
+        "subnet-0462b87709683ccaa",
+        "subnet-066a53dd88d557e05",
+        "subnet-021a6adafb79249e3"
+      ]
+    }
+  },
+  // NEW configuration added
+  "serviceConnectConfiguration": {
+    "enabled": true,
+    "namespace": "cruddur",
+    "services": [
+      {
+        // portName is same as what we called it in our task definitions
+        "portName": "backend-flask",
+        "discoveryName": "backend-flask",
+        "clientAliases": [{"port": 4567}]
+      }
+    ]
+  },
+  "propagateTags": "SERVICE",
+  "serviceName": "backend-flask",
+  "taskDefinition": "backend-flask"
+}
+```
+
+Use these commands below to find your `security grp` and `subnets`
+
+```bash
+# grab the custom security grp ID
+export CRUD_SERVICE_SG=$(aws ec2 describe-security-groups \
+  --filters Name=group-name,Values=crud-srv-sg \
+  --query 'SecurityGroups[*].GroupId' \
+  --output text)
+
+# grab the DEFAULT security grp
+export DEFAULT_VPC_ID=$(aws ec2 describe-vpcs \
+--filters "Name=isDefault, Values=true" \
+--query "Vpcs[0].VpcId" \
+--output text)
+
+echo $DEFAULT_VPC_ID
+
+# grab the DEFAULT subnets 
+export DEFAULT_SUBNET_IDS=$(aws ec2 describe-subnets  \
+ --filters Name=vpc-id,Values=$DEFAULT_VPC_ID \
+ --query 'Subnets[*].SubnetId' \
+ --output json | jq -r 'join(",")')
+
+echo $DEFAULT_SUBNET_IDS
+```
+
+Now, we can recreate our service to be sure every configuration checks out. 
+
+```bash
+aws ecs create-service --cli-input-json file://aws/json/service-backend-flask.json
+```
+
+Go over to your AWS console to confirm the service is created and the task in it is `running` successfully.
+
+Also, check the endpoint on the browser to be sure; everything is still okay `public IP:4567/api/health-check` OR `public IP:4567/api/activities/home`. Any of the endpoints should work.
+
+</p>
+</details>
+
+
+### 5. Provision and Configure Application Load Balancer (ALB) along with Target Groups
+
+<details><summary>Install Boto3</summary>
+<p> 
+  
+</p>
+</details>
+
+
+
+
+
+### 6. Create ECR repo and push image - `fronted-react-js` image
+
+<details><summary>Install Boto3</summary>
+<p> 
+  
 </p>
 </details>
 
@@ -778,15 +1039,7 @@ I keep getting this error:
 
 
 
-
-
-</p>
-</details>
-
-
-
-
-
+### 7. Deploy Frontend React JS app as a service to FARGATE
 
 
 <details><summary>Install Boto3</summary>
