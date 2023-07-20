@@ -2976,18 +2976,372 @@ For our `rollback` script, it has similar functionality to the `migrate` script 
 <details><summary>Test out our migrate script</summary>
 <p> 
 
+In your terminal, go ahead and execute the script 
+
+```bash
+./bin/db/migrate
+```
+
+Oops! We seem to be getting this error 
+
+![Image of Migrate Script - Verbose Error](assets/migrate-script-verbose-error.png)
+
+That errored line was added to our `migrate` script, so it doesn’t print out our query output. To fix the error, let’s navigate to our `backend-flask/lib/db.py` file and make these updates 
+
+![Image of Github Diff to Fix Migrate Script Error I](assets/github-diff-to-fix-migrate-script-error-1.png)
+
+![Image of Github Diff to Fix Migrate Script Error II](assets/github-diff-to-fix-migrate-script-error-2.png)
+
+Let’s try running the script again. 
+
+Okay, we’ve encountered a different error this time. If you encountered this error, follow the steps below to resolve it.
+
+![Image of Another Migrate Script Error](assets/another-migrate-script-error.png)
+
+### Resolution
+
+Navigate to your `../generate/migration` file and remove `this.` in front of `db.query_commit` in the `migrate()` method. 
+
+```python
+# change this 
+def migrate():
+    **this**.db.query_commit({klass}Migration.migrate_sql(),{{
+    }})
+  def rollback():
+    **this**.db.query_commit({klass}Migration.rollback_sql(),{{
+    }})
+
+# To this
+def migrate():
+    db.query_commit({klass}Migration.migrate_sql(),{{
+    }})
+  def rollback():
+    db.query_commit({klass}Migration.rollback_sql(),{{
+    }})
+```
+
+Do the same for the generated migration file, `...._add_bio_column.py` file. Remove `this` everywhere it was mentioned in the file. 
+
+If you are still encountering some errors like so,
+
+![Image of NoneType Error in Migrate Script](assets/nonetype-error-in-migrate-script.png)
+
+Let’s go ahead and check the `rollback` script.
+
 </p>
 </details>
 
 <details><summary>Test out our rollback script</summary>
 <p> 
 
-</p>
-</details>
+Let’s test out our `rollback` script. 
+
+```bash
+./bin/db/rollback
+```
+
+The output of this script is `None`, which shouldn’t be because we successfully ran our migration, so it should be returning the value of our `last_migration_file`. 
+
+You can add some `print` statements to see exactly what the problem is 
+
+![Image of Print Statements for Testing](assets/print-statements-for-testing.png)
+
+Run the script again
+
+![Image of Wrong Output from Rollback Script](assets/wrong-output-from-rollback-script.png)
+
+This means that our `last_successful_run` is empty, which is why it is returning `None`. 
+
+Let’s connect to our database and confirm that this is true. 
+
+```sql
+# connect to DB 
+./bin/db/connect 
+
+# inside the DB, run this command
+SELECT last_successful_run
+    FROM public.schema_information
+    LIMIT 1;
+```
+
+This returns `0 rows`, which shouldn’t be. Our `last_successful_run` should never be `None` or `NULL`. 
+
+Let’s take a look at the queries we are passing in our `get_last_successful_run()` and `set_last_successful_run(value)` methods. 
+
+- remove `coalesce` from the queries in both the `migrate` and `rollback` scripts.
+  
+- Let’s also update our `backend-flask/db/schema.sql` file. We want only to do this if the record doesn’t exist. We will also make some updates to the `schema_information` table. This allows us to be able to insert into our DB. But this time, our insert will be dependent on the value of our new field, `id`.
+  
+    - For this, we will add the keyword, `UNIQUE`
+      
+    - This keyword is a constraint to our `id` field that ensures that there are no duplicate values or that nothing else appears with the same value.
+
+```sql
+# add after creating the table 
+CREATE TABLE IF NOT EXISTS public.schema_information (
+  id integer UNIQUE,
+  last_successful_run text
+);
+
+INSERT INTO public.schema_information (id,last_successful_run) 
+VALUES (1,'0')
+ON CONFLICT (id) DO NOTHING;
+```
+
+The above query inserts a single row with `id = 1` and `last_successful_run = '0'`. 
+
+- The `ON CONFLICT` clause says that if a row with `id = 1` already exists, then insert nothing.
+
+**We ran similar code in the `migrate` script section**
+
+I know I said we won’t be doing this, but let’s manually drop our `schema_information` table inside our DB. 
+
+```sql
+# connect to DB
+./bin/db/connect
+
+# inside DB
+DROP TABLE schema_information; 
+
+CREATE TABLE IF NOT EXISTS public.schema_information (
+  id integer UNIQUE,
+  last_successful_run text
+);
+
+INSERT INTO public.schema_information (id,last_successful_run) 
+VALUES (1,'0')
+ON CONFLICT (id) DO NOTHING;
+
+# test that the insert happened 
+SELECT * FROM schema_information;
+
+# try inserting again to be sure 
+# it is not inserting those values twice 
+INSERT INTO public.schema_information (id,last_successful_run) 
+VALUES (1,'0')
+ON CONFLICT (id) DO NOTHING;
+
+# test that the value wasn't inserted twice 
+SELECT * FROM schema_information;
+```
+
+Make sure to update your `..db/schema.sql` file 
+
+```sql
+CREATE TABLE IF NOT EXISTS public.schema_information (
+  id integer UNIQUE,
+  last_successful_run text
+);
+
+INSERT INTO public.schema_information (id,last_successful_run) 
+VALUES (1,'0')
+ON CONFLICT (id) DO NOTHING;
+```
+
+Now let’s test out our `rollback` script again. 
+
+- Before we run that script, let’s manually run this query (inside our DB) from our generated Python migration file since our migration didn’t run correctly the first time
+
+```sql
+# connect to DB
+./bin/db/connect
+
+# inside DB
+ALTER TABLE public.users DROP COLUMN bio;
+```
+
+Make sure to update your generated migration file with that last command because we didn’t tell it what column to drop. 
+
+```sql
+ALTER TABLE public.users DROP COLUMN bio;
+```
+
+### Test out the `migrate` script again
+
+Now let’s run our `migrate` script before we can run the `rollback` one. 
+
+```bash
+# migrate script
+./bin/db/migrate
+```
+
+Yay!!! It is successful now. 🎉
+
+![Image of a Successful Migration](assets/successful-migration.png)
+
+To confirm that our `last_succesful_run` variable is correctly set, let’s run this command inside our DB
+
+```sql
+# connect to DB
+./bin/db/connect
+
+# inside DB
+SELECT * FROM schema_information;
+```
+
+![Image of Successful Migration in the Database](assets/successful-migration-in-db.png)
+
+### Test out the `rollback` script
+
+Now we can test out our `rollback` script.
+
+```bash
+# rollack script
+./bin/db/rollback
+```
+
+And now, we should be getting the right values 
+
+![Image of a Successful Rollback I](assets/successful-rollback-1.png)
+
+![Image of a Successful Rollback II](assets/successful-rollback-2.png)
+
+I’m not sure why mine is `False`. I have to investigate further. 
+
+### Ensure the `rollback` script runs only Once
+
+Now we want our `rollback` script only to run once. Let’s go ahead and make the following updates:
+
+```python
+last_migration_file = None
+for migration_file in migration_files:
+  if last_migration_file == None:
+    filename = os.path.basename(migration_file)
+    module_name = os.path.splitext(filename)[0]
+    match = re.match(r'^\d+', filename)
+    if match:
+      file_time = int(match.group())
+      if last_successful_run > file_time:
+        last_migration_file = module_name
+        mod = importlib.import_module(module_name)
+        print('=== rolling back: ',module_name)      
+        mod.migration.rollback()
+        set_last_successful_run(file_time)
+```
+
+Let’s also update the `set_last_successful_run` section in the same file to include the `WHERE` clause as so:
+
+```python
+def set_last_successful_run(value):
+  sql = """
+  UPDATE schema_information
+  SET last_successful_run = %(last_successful_run)s
+  WHERE id = 1
+  """
+  db.query_commit(sql,{'last_successful_run': value})
+  return value
+```
+
+Before testing out these modifications, we need to reset our `last_successful_run` variable manually. This is because when we rolled back, it dropped our `bio` column, so we need to add it back and be sure our `migrate` and `rollback` scripts work correctly. 
+
+Let’s run these commands inside our DB.
+
+```sql
+# connect to DB
+./bin/db/connect
+
+# inside the DB
+\d users;       # to see if the "bio" column is still there 
+UPDATE schema_information SET last_successful_run = 0;      # to change our variable to be 0
+SELECT * FROM schema_information;    # to be sure we correctly set the variable to 0
+
+# now back in your terminal
+./bin/db/migrate 
+
+# back into your DB
+\d users;  # you should see the "bio" column now  
+```
+
+To be sure, we actually rolled back. We shouldn’t see the `bio` column 
+
+![Image of a Successful Rollback - Deleted bio column](assets/successful-rollback-deleted-bio-column.png)
+
+After running the `migrate` script again, we now have our `bio` column back. 
+
+![Image of a Successful Migration - Added bio column](assets/successful-migration-added-bio-column.png)
+
+Running my rollback again doesn’t seem to be working.
 
 </p>
 </details>
 
+</p>
+</details>
+
+<details><summary>Next Step After Migration Implementation</summary>
+<p> 
+
+After our migrations implementation, let’s make sure our application still works. 
+
+- Go ahead and refresh your browser, and you should still be good
+
+Let’s try out other stuff in our app
+
+- Navigate to your `Profile` page and click on **Edit Profile**
+  
+- Inside the **Bio** section, try to write something and **Save** it - you should see this error in your `backend-flask` container
+    
+    ![Image of query_select_object Error](assets/query-select-object-error.png)
+    
+- Let’s head back to our code and search for `query_select_object`
+  
+    - You should see that in your `backend-flask/services/update_profile.py` file
+      
+    - That is a mistake because we don’t have any object, `query_select_object` but `query_object`
+      
+- Go ahead and make that change
+
+![Image of the Above Error Snapshot](assets/above-error-snapshot.png)
+
+Let’s also check our `db.py` file to be sure we are naming it correctly.
+
+- In our `db.py` file, we see that it’s actually called `query_object_json`, not `query_object`.
+
+Now try saving your `Bio` again in your web app. Hmmm, now we are getting this error:
+
+![Image of Model Error](assets/model-error.png)
+
+HMMM. 🤔 Let’s review our `app.py` file to be sure we are not missing anything. 
+
+- Oh, we see that the `model` in our `/api/profile/update` endpoint is not being assigned. Let’s go ahead and assign it
+
+```python
+try:
+    claims = cognito_jwt_token.verify(access_token)
+    cognito_user_id = claims['sub']
+    **model** = UpdateProfile.run(
+      cognito_user_id=cognito_user_id,
+      bio=bio,
+      display_name=display_name
+    )
+    if model['errors'] is not None:
+      return model['errors'], 422
+```
+
+Try saving your **Bio** again, and it should go through. 
+
+![Image of Successfully Saving Bio](assets/successfully-saving-bio.png)
+
+But our update is not propagated on our webpage. When you refresh, it seems to be propagated. Now let’s work on showing our **Bio** on our **Profile** page.  
+
+Navigate to your `frontend-react-js/src/components/ProfileHeading.js` and `frontend-react-js/src/components/ProfileHeading.css` files, and make the following updates:
+
+![Image of Github Diff for ProfileHeading I](assets/github-diff-for-profile-heading-1.png)
+
+![Image of Github Diff for ProfileHeading II](assets/github-diff-for-profile-heading-2.png)
+
+Let’s also go ahead and make those updates in our `show.sql` file
+
+![Image of Github Diff for show SQL Script](assets/github-diff-for-show-sql-script.png)
+
+After the modifications, go ahead and refresh your web app. You should now see your ******Bio****** write-up appear. 
+
+But it doesn’t implement or save your `bio` in real-time. 
+
+![Image of Successfully Saved Bio](assets/successfully-saved-bio.png)
+
+</p>
+</details>
 
 
 ### 7. Implement Avatar Uploading 
