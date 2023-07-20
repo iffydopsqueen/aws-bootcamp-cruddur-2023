@@ -3700,7 +3700,7 @@ Let’s test out our lambda before triggering any action.
 
 - Go to your **Test** tab and click test
     
-    ![Image of Failed Lambda Test](assets/failed-lambda-test.png)
+    ![Image of Failed Lambda Test](assets/failed-lambda-test-another-one.png)
     
 
 Since our code is complaining of `lambda_handler` being `undefined`. Let’s take a look at it. 
@@ -3819,7 +3819,7 @@ Now we want to download these files (package.json, package-lock.json, index.js, 
 
 After creating the zipped folder, navigate to your AWS console and go to the **Lambda** service. Let’s create a new one called `CruddurApiGatewayLambdaAuthorizer`
 
-![Image of Lambda Upload Function Config](assets/lambda-upload-function-config.png)
+![Image of Lambda Upload Function Config](assets/lambda-api-gateway-authorizer-config.png)
 
 Then on your far right, where your **Code source** is, click on `Upload from` and select the option “**.zip file**”.
 
@@ -4147,7 +4147,7 @@ Make the following adjustments to your code
 
 Go ahead and make more updates by changing the method to a `PUT`. and removing some of the extra lines of codes. 
 
-![Image of Changing POST Request to PUT](assets/chaning-post-request-to-put.png)
+![Image of Changing POST Request to PUT](assets/changing-post-request-to-put.png)
 
 </p>
 </details>
@@ -4170,7 +4170,7 @@ If you notice, there is no authorizer attached to this route.
 
 We also need to pass along our origin else our request doesn’t work.
 
-Let’s go ahead and update our CORS configuration. You should see no configuration if you check your CORS configuration page because those configs are now passed along in our lambda function. 
+Let’s go ahead and update our CORS configuration. If you check your CORS configuration page, you should see no configuration because those configs are now passed along in our lambda function. 
 
 Make sure the lambda function code in the AWS console matches this one. Do the same for the one in your repo. Don’t forget to deploy the changes in your lambda. 
 
