@@ -3651,9 +3651,9 @@ Now let’s copy our updated code from the `function.rb` file and paste it into 
   
 - Add the following permission to the policy and name the policy `PresignedUrlAvatarPolicy`. This policy grants our lambda `s3:PutObject` permissions to be able to upload images to our S3 bucket.
     
-    ![Image of the Presigned IAM Policy - Snapshot](aseets/snapshot-of-presigned-iam-policy.png)
+    ![Image of the Presigned IAM Policy - Snapshot](assets/snapshot-of-presigned-iam-policy.png)
     
-    ![Image of the Presigned IAM Policy - Source Code](aseets/source-code-of-presigned-iam-policy.png)
+    ![Image of the Presigned IAM Policy - Source Code](assets/source-code-of-presigned-iam-policy.png)
     
 In order not to lose this policy, let’s add it to our code. 
 
