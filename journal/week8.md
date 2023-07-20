@@ -3346,22 +3346,1031 @@ But it doesn’t implement or save your `bio` in real-time.
 
 ### 7. Implement Avatar Uploading 
 
+Let’s implement our avatar uploads to our web app - frontend. To do that, we need to install SDK for Javascript API - This is for the Client side.
 
-
-<details><summary> Something</summary>
+<details><summary>Implementation</summary>
 <p> 
+
+First, let’s make sure we are logged into our ECR and our environment variable files are generated. 
+
+```bash
+./bin/ecr/login
+
+# these should be generated from "gitpod.yml" when we started a new workspace
+./bin/frontend/generate-env
+./bin/backend/generate-env
+```
+
+In your `frontend-react-js` directory, install the AWS SDK for S3
+
+```bash
+npm i @aws-sdk/client-s3 --save
+```
+
+Now, start up your application
+
+```bash
+docker compose up
+```
+
+If you are getting a similar error, that’s because you haven’t run the `migrate` script, which adds that column. 
+
+![Image of Migrate Script Error of bio does not exist](assets/migrate-script-error-bio-does-not-exist.png)
+
+**Quick fix**:- run the `migrate` script using this command:
+
+```bash
+./bin/db/migrate
+```
+
+Let’s create a new function in our `ProfileForm.js` file
+
+```jsx
+const s3upload = async (event)=> {
+}
+```
+
+![Image of Github Diff of ProfileForm](assets/github-diff-of-profile-form.png)
+
+We shouldn’t have jumped installing that AWS SDK. Let’s delete it. 
+
+- Manually delete your new `package.json` and `package-lock.json` files generated
+  
+- You can do this from the Git/Github extension in your `Gitpod`. Simply discard the changes.
+
+Let’s look into using presigned URLs to upload our avatars.
+
+### Presigned URL
+
+You can use presigned URLs to grant time-limited access to objects in Amazon S3 without updating your bucket policy. A presigned URL can be entered into a browser or used by a program to download an object. The credentials used by the presigned URL are those of the AWS user who generated the URL.
+
+You can also use presigned URLs to allow someone to upload a specific object to your Amazon S3 bucket. This allows an upload without requiring another party to have AWS security credentials or permissions. If an object with the same key already exists in the bucket as specified in the presigned URL, Amazon S3 replaces the existing object with the uploaded object.
+
+You can use the presigned URL multiple times up to the expiration date and time. [Read more](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html)
+
+Looks like we will now be using presigned URLs to upload our avatars. But before that implementation, let's go ahead to create our **API Gateway**.
+
+</p>
+</details>
+
+<details><summary>Using API Gateway</summary>
+<p> 
+
+We will be using API Gateway (API endpoint) to trigger a Lambda during an upload to an S3 bucket. 
+
+First, we need to create our lambda function
+
+- Go to your AWS console, and navigate to the **AWS Lambda** service
+  
+- Click on **Create function**
+  
+- Leave **Author from scratch** selected
+  
+- Under the **Basic information** section,
+  
+    - Function name: `CruddurAvatarUpload`
+      
+    - Runtime: `Ruby 2.7`
+      
+    - Leave the **Architecture** as is
+      
+    - Expand the **Permissions** section,
+      
+        - Select `Create a new role with basic Lambda permissions`
+          
+- Leave the **Advanced settings** as is
+  
+- Go ahead and **create** the function
+
+Now let’s generate a presigned URL using Ruby SDK. 
+
+In your `aws/lambdas` directory, create a folder, `cruddur-upload-avatar`, with file, `function.rb`.
+
+```bash
+mkdir aws/lambdas/cruddur-upload-avatar
+touch aws/lambdas/cruddur-upload-avatar/function.rb
+```
+
+In the `function.rb` file, let’s add some code to initialize the client. 
+
+```ruby
+require 'aws-sdk-s3'
+
+client = Aws::S3::Client.new()
+```
+
+Let’s generate a `Gemfile` for our directory. A `Gemfile` is a way you manage libraries or gems for ruby projects. 
+
+Make sure to be in the `cruddur-upload-avatar` directory before running this command. This generates the `Gemfile` we need.
+
+```bash
+bundle init
+```
+
+We see a `Gemfile` generated in our directory. A `Gemfile.lock` file is generated later when we install our dependencies. The `Gemfile` file is where we add our dependencies, and the `Gemfile.lock` file has all the dependencies and versions of our libraries/gems installed for our ruby projects. 
+
+Now inside the `Gemfile`, add this line of code
+
+```ruby
+# gem "rails"
+gem "aws-sdk-s3"
+```
+
+In your `cruddur-upload-avatar` directory, download the library by running this command:
+
+```ruby
+bundle install
+```
+
+Now, we should see a `Gemfile-lock` file. 
+
+After installing our SDK library, let’s add the code to return a presigned URL for upload to our function. If we are going to do this, then we probably don’t need to initialize the client as we did in our `function.rb` file 🤔. 
+
+Update your code in `function.rb` file with the following: 
+
+```ruby
+require 'aws-sdk-s3'
+
+s3 = Aws::S3::Resource.new
+bucket_name = ENV["UPLOADS_BUCKET_NAME"]
+object_key = "mock.jpg"
+
+obj = s3.bucket(bucket_name).object(object_key)
+url = obj.presigned_url(:put, expires_in: 3600)
+puts url
+```
+
+Make sure your `UPLOADS_BUCKET_NAME` environment variable is exported on your terminal. Check your `.env.example` file to be sure the value matches what you are setting in your terminal. To set the variable in your terminal and `gitpod`, do the following:
+
+```bash
+export UPLOADS_BUCKET_NAME="cruddur-uploaded-avatars"
+gp env UPLOADS_BUCKET_NAME="cruddur-uploaded-avatars"
+```
+
+After your modifications, run the ruby file
+
+```bash
+# run this in your "cruddur-uploaded-avatar" folder
+bundle exec ruby function.rb
+```
+
+We get an error trying to execute our ruby file. That is because we don’t have an XML parser. 
+
+![Image of No XML Parser for Ruby Project](assets/no-xml-parser-for-ruby-projects.png)
+
+Let's add the `ox` XML library to our `Gemfile`.
+
+```bash
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+# gem "rails"
+gem "aws-sdk-s3"
+gem "ox"
+```
+
+Let’s go ahead and install the library. 
+
+Make sure to be in your `cruddur-upload-avatar` directory before running this command:
+
+```ruby
+bundle install
+```
+
+Now let’s try running the ruby file, `function.rb` again
+
+```bash
+# run this in your "cruddur-uploaded-avatar" folder
+bundle exec ruby function.rb
+```
+
+Yay!!! We have a presigned URL now. 🎉
+
+![Image of a Successfully Generated Presigned URL](assets/successfully-generated-presigned-url.png)
+
+We can use this URL to upload data to our S3 bucket.
+
+<details><summary>Using an API Client</summary>
+<p> 
+
+We can use a Postman alternative extension as our API Client. API Client extensions help us test our APIs. Let’s use `Thunder Client`. 
+
+Go ahead and install the client. 
+
+![Image of Thunder Client Extension](assets/thunder-client-extension.png)
+
+After installation, click on the Extension to open it.
+
+- Now click **New Request**
+  
+- You will see a URL box with a **Send** button at the end; paste our generated presigned URL into our client
+
+We see that this pre-populates our query parameters. 
+
+![Image of Query Parameters of Presigned URL](assets/query-parameters-of-presigned-url.png)
+
+Now let’s try and see if we can upload an image to our S3 bucket using our presigned URL. 
+
+- Download any image of your choice into this directory, `aws/lambdas/cruddur-upload-avatar`. Don’t forget to save it as `jpg`. We will be saving  it as `lore.jpg`
+  
+- We really don’t want to live the image in our code, but for now, we are just testing that we can upload our images to S3.
+  
+- After downloading the image, go back to your client let’s upload it there.
+  
+    - Inside the client, navigate to the `Body` tab and then the `Binary` tab
+      
+    - Select **Choose File**
+      
+    - Then click the **Send** button for our URL to upload the image to our S3
+      
+- In the **Response** tab of our client, we receive a `403 Forbidden` error that says `SignatureDoesNotMatch`
+    
+    ![Image of Presigned URL Upload Error](assets/presigned-url-upload-error.png)
+    
+- If you keep reading through the error response, you see that the `Message` element says `...Check your key and signing method`
+
+### Troubleshooting
+
+1. Navigate back to the `function.rb` file, and let’s review the `expires_in` parameter of our presigned URL.
+    
+    ![Image of Presigned URL Expiration Time](assets/presigned-url-expiration-time.png)
+    
+2. Currently, we have the parameter set to `3600` seconds which equals `1` hour. That should be enough time for our image to be uploaded to S3.
+   
+4. Since all look good in our `function.rb` file, let’s change our request method from a `GET` to a `PUT` request at the top of the page. 
+    
+    ![Image of Successful Presigned URL Upload](assets/successful-presigned-url-upload.png)
+    
+5. Now, that should have been uploaded successfully. 
+
+Navigate to your S3 bucket, `WHATEVER_NAME-uploaded-avatars`, to confirm the image was successfully uploaded. You should see the image as `mock.jpg` because that is the name we hardcoded to it in our `function.rb` file. 
+
+![Image of Successful Presigned URL Upload to S3](assets/successful-presigned-url-upload-to-s3.png)
+
+Now we know our upload was successful through our presigned URL, let’s go ahead and delete the file that was just uploaded so we can package our `function.rb` file into a lambda function - Ruby.
+
+</p>
+</details>
+
+</p>
+</details>
+
+<details><summary>Package the Upload function into a Lambda function</summary>
+<p> 
+
+In your `function.rb` file, let’s update the code 
+
+```ruby
+require 'aws-sdk-s3'
+require 'json'
+
+def handler(event:, context:)
+  puts event
+  s3 = Aws::S3::Resource.new
+  bucket_name = ENV["UPLOADS_BUCKET_NAME"]
+  object_key = 'mock.jpg'
+  
+  obj = s3.bucket(bucket_name).object(object_key)
+  url = obj.presigned_url(:put, expires_in: 3600)
+  url # this is the data that will be returned
+  body = {url: url}.to_json
+  { statusCode: 200, body: body }
+end
+```
+
+Now let’s copy our updated code from the `function.rb` file and paste it into the Lambda function we created manually earlier. 
+
+- Click **Deploy** to deploy our changes
+  
+- Select the **Configuration** tab, then **Permissions** to add additional permissions to our role
+  
+- Click on the **Role name** you see there
+  
+- On the new page, which is the IAM page, click on **Add permissions** and select **Create an inline policy**
+  
+- Add the following permission to the policy and name the policy `PresignedUrlAvatarPolicy`. This policy grants our lambda `s3:PutObject` permissions to be able to upload images to our S3 bucket.
+    
+    ![Image of the Presigned IAM Policy - Snapshot](aseets/snapshot-of-presigned-iam-policy.png)
+    
+    ![Image of the Presigned IAM Policy - Source Code](aseets/source-code-of-presigned-iam-policy.png)
+    
+In order not to lose this policy, let’s add it to our code. 
+
+In `aws/policies` directory, create a file, `s3-upload-avatar-presigned-url-policy.json`
+
+```bash
+# create file
+touch aws/policies/s3-upload-avatar-presigned-url-policy.json
+
+# FILE CONTENT 
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+      {
+          "Sid": "VisualEditor0",
+          "Effect": "Allow",
+          "Action": "s3:PutObject",
+          "Resource": "arn:aws:s3:::MYDOMAIN-uploaded-avatars/*"
+      }
+  ]
+}
+```
+
+Back to our Lambda function, let’s add our bucket name environment variables. In your lambda, select the **Configuration** tab, 
+
+- Select **Environment variables** and add your bucket name
+  
+- You can get these values from your `.env.example` file
+  
+    - **UPLOADS_BUCKET_NAME**: `MYDOMAIN-uploaded-avatars`
+
+Thinking about it, having that `3600` seconds to upload an image is too much. That’s equivalent to `1` hour. Let’s reduce that time to `5 mins`
+
+In your `function.rb` file, make the following adjustment
+
+```ruby
+url = obj.presigned_url(:put, expires_in: 60 * 5)
+```
+
+Make sure to update the code in your lambda function as well. 
+
+Let’s test out our lambda before triggering any action. 
+
+- Go to your **Test** tab and click test
+    
+    ![Image of Failed Lambda Test](assets/failed-lambda-test.png)
+    
+
+Since our code is complaining of `lambda_handler` being `undefined`. Let’s take a look at it. 
+
+- Navigate to the **Code** tab of your lambda
+  
+- Scroll down to the **Runtime settings**
+  
+- You see that our `lambda_handler` is set to `lambda_function`, which is wrong
+    
+    ![Image of Wrong Lambda Handler](assets/wrong-lambda-handler.png)
+    
+- Click the **Edit** button to edit the handler to
+  
+    - Handler: `function.handler`
+      
+- Go ahead and **Save** and test again.
+
+We are running into another error
+
+![Image of Another Failed Lambda Test](assets/another-failed-lambda-test.png)
+
+This error explains that there is something wrong with our file. Let’s make sure our file is named correctly in our lambda function. 
+
+Oops! Our lambda function file is named `lambda_function.rb` instead of `function.rb`. Go ahead and make that change. 
+
+![Image of the Wrong File Name for Lambda Function Code Source](assets/wrong-file-name-for-lambda-function-code-source.png)
+
+Now test out the code again. 
+
+![Image of a Successful Lambda Function Test](assets/successful-lambda-function-test.png)
+
+Yeah, it works now. 🎉
+
+Let’s look into API Gateway Lambda authorizer now.
 
 </p>
 </details>
 
 
-
 ### 8. HTTP API Gateway with Lambda Authorizer
 
+For this implementation, we will be using `aws-jwt-verify`. [Read more here.](https://github.com/awslabs/aws-jwt-verify#api-gateway-lambda-authorizer---rest)
 
-
-<details><summary> Something</summary>
+<details><summary>Implementation</summary>
 <p> 
+
+In your `aws/lambdas` directory, create another folder, `lambda-authorizer`, with a file inside the folder, `index.js`
+
+```bash
+mkdir aws/lambdas/lambda-authorizer
+touch aws/lambdas/lambda-authorizer/index.js
+```
+
+Content of the `index.js` file:
+
+```jsx
+"use strict";
+const { CognitoJwtVerifier } = require("aws-jwt-verify");
+//const { assertStringEquals } = require("aws-jwt-verify/assert");
+
+const jwtVerifier = CognitoJwtVerifier.create({
+  userPoolId: process.env.USER_POOL_ID,
+  tokenUse: "access",
+  clientId: process.env.CLIENT_ID//,
+  //customJwtCheck: ({ payload }) => {
+  //  assertStringEquals("e-mail", payload["email"], process.env.USER_EMAIL);
+  //},
+});
+
+exports.handler = async (event) => {
+  console.log("request:", JSON.stringify(event, undefined, 2));
+
+  const jwt = event.headers.authorization;
+  try {
+    const payload = await jwtVerifier.verify(jwt);
+    console.log("Access allowed. JWT payload:", payload);
+  } catch (err) {
+    console.error("Access forbidden:", err);
+    return {
+      isAuthorized: false,
+    };
+  }
+  return {
+    isAuthorized: true,
+  };
+};
+```
+
+Make sure you have the environment variables in this file set on your terminal with the same name. 
+
+```bash
+export USER_POOL_ID=""
+gp env USER_POOL_ID=""
+
+export CLIENT_ID=""
+gp env CLIENT_ID=""
+```
+
+This authorizer will need to be installed into our `package.json`. To do that, let’s navigate to our `aws/lambdas/lambda-authorizer` directory and install the `jwt-verify`
+
+```bash
+# make sure to be in the lambda-authorizer folder
+npm install aws-jwt-verify --save
+```
+
+This installation creates the following files that store our `aws-jwt-verify` dependencies:
+
+- `package.json`
+- `package-lock.json`
+- `node_modules`
+
+Now we want to download these files (package.json, package-lock.json, index.js, and node_modules) unto our computer and zip them. 
+
+- We need to call that zipped folder `lambda-authorizer`.
+
+After creating the zipped folder, navigate to your AWS console and go to the **Lambda** service. Let’s create a new one called `CruddurApiGatewayLambdaAuthorizer`
+
+![Image of Lambda Upload Function Config](assets/lambda-upload-function-config.png)
+
+Then on your far right, where your **Code source** is, click on `Upload from` and select the option “**.zip file**”.
+
+- Now select those 4 files you zipped
+    
+    ![Image of the Uploaded Zipped Files to Lambda](assets/uploaded-zipped-files-to-lambda.png)
+    
+Now that we have our Lambdas ready, let’s go ahead and create our **HTTP API Gateway**. 
+
+Make sure the environment variables in the `index.js` file for the authorizer are set on Lambda as well. 
+
+```bash
+USER_POOL_ID=""
+CLIENT_ID=""
+```
+
+</p>
+</details>
+
+<details><summary>Create HTTP API Gateway</summary>
+<p> 
+
+Let’s create our API. 
+
+### Steps
+
+- Go to your AWS console, and navigate to the **API Gateway** service to create an API endpoint
+
+- In the **Choose an API type** page, we will be going with the `HTTP API`. Go ahead and click on **Build**
+  
+- On the **Create and configure integrations** page, select the following:
+  
+    - Integrations: `Lambda`
+    
+    - AWS Region: `us-west-2`
+      
+    - Lambda function: select your `CruddurAvatarUpload` lambda we created
+      
+    - API name: `api.MYDOMAIN.com`
+      
+- Click on **Next**
+  
+- On the **Configure routes** page, add the following:
+  
+    - Method: `GET`
+      
+    - Resource path: `/avatars/key_upload`
+      
+    - Integration target: Leave as is, `CruddurAvatarUpload`
+      
+- Click on **Next**
+  
+- On the **Configure stages** page, leave as is
+    
+    ![Image of Configure Stages for API Gateway](assets/configure-stages-for-api-gateway.png)
+    
+- Click on **Next**
+  
+- On the **Review and create** page, go ahead and review your configurations and **Create**
+
+### Let’s add our authorizer now
+
+On the left-hand side of your **API Gateway** page, click on **Authorization** so we can go ahead to add our authorizer. 
+
+- On the **Authorization** page, select the **Manage authorizers** tab so we can configure those authorizers
+  
+- At the top, you should see a **Create** button; click on it. That should bring you to a different page that says **Create authorizer**
+  
+- The lambda function to use here is the `CruddurApiGatewayLambdaAuthorizer`
+    
+    ![Image of Lambda Authorizer Creation I](assets/lambda-authorizer-creation-1.png)
+    
+    ![Image of Lambda Authorizer Creation II](assets/lambda-authorizer-creation-2.png)
+    
+If you have a cache, it will speed up your Lambda. But we will be turning ours off because we are not sure. 
+
+After setting those configurations, go ahead and click **Create**. You should have a screen that looks like this 
+
+![Image of Manage Authorizers Tab](assets/manage-authorizers-tab.png)
+
+Now navigate to the **Attach authorizers to routes** tab to attach our configured authorizer. 
+
+- Select the `GET` request to see our authorizer and attach
+    
+    ![Image of Attaching an Authorizer to our Route](assets/attaching-authorizer-to-route.png)
+    
+- On your far left, you should see **********************************Attach authorizer;********************************** go ahead and click that button to attach our `CruddurJWTAuthorizer`
+- After the attachment, it should be looking like this now
+    
+    ![Image of the Attached Authorizer to our Route](assets/attached-authorizer-to-route.png)
+    
+To be sure we can use this authorizer, let's go ahead and test it. We do that by clicking the **Stages** button at the bottom left of the **API Gateway** page. 
+
+- Select the `$default` button to see the details
+  
+- Copy the **Invoke URL** on the details page to a browser and append `/avatars/key_upload`, which is the route we have defined for our API gateway.
+  
+- Since we're not passing any authorization headers here, this shouldn't work. And now we get an `Unauthorized` message.
+    
+    ![Image of Testing Attached Authorizer](assets/testing-attached-authorizer.png)
+    
+- Now, head over to your Lambda to see if it was triggered.
+
+Navigate to the `Lambda authorizer` we created in the Lambda service, select the **Monitor** tab, and click **View CloudWatch Logs** to see if our Lambda was triggered. 
+
+- On the **CloudWatch** page, we get this error signifying that the lambda log group doesn’t exist, which means the lambda function wasn’t triggered.
+    
+    ![Image of Authorizer Log Group Not Existing](assets/authorizer-log-group-does-not-exist.png)
+    
+- This is because we did not pass our authorization headers (bearer token).
+
+- We passed those headers in our `ProfileForm.js` file. Now let’s implement an HTTP request for our API Gateway.
+
+In `ProfileForm.js`, add this function
+
+```jsx
+const s3upload = async (event)=> {
+  try {
+    // make sure this matches yours
+    // invoke URL from your API Gateway
+    const backend_url = "https://clbx5fa2yb.execute-api-us-east-1.amazonaws.com/avatars/key_upload"
+    await getAccessToken()
+    const access_token = localStorage.getItem("access_token")
+    const res = await fetch(backend_url, {
+      method: "POST",
+      headers: {
+        'Authorization': 'Bearer ${access_token}',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }})
+     let data = await res.json();
+      if (res.status === 200) {
+        console.log('presigned url',data)
+      } else {
+        console.log(res)
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }
+```
+
+Now let’s change the method and route in our API Gateway from `GET` to a `POST`
+
+![Image of Editing API Gateway Route](assets/editing-api-gateway-route.png)
+
+After the changes, that will auto-deploy, so we don’t have to do anything for that update. 
+
+Now in your `ProfileForm.css` file, let’s add some styling to see the changes we are making to our `s3upload` function. In our case, the **Upload Avatar** is going to be **green**. 
+
+In `ProfileForm.js`:
+
+```jsx
+<div className="popup_heading">
+            <div className="popup_title">Edit Profile</div>
+            <div className='submit'>
+              <button type='submit'>Save</button>
+            </div>
+          </div>
+          <div className="popup_content">
+
+            <div className="upload" onClick={s3upload}>
+              Upload Avatar
+            </div>
+          <input type="file" name="avatarupload" onChange={s3upload} />
+```
+
+![Image of Github Diff of Upload in Profile Form](assets/github-diff-of-upload-in-profile-form.png)
+
+In `ProfileForm.css`:
+
+```css
+.profile_popup .upload {
+  color: white;
+  background: green;
+}
+```
+
+Go back to your web app in your browser and refresh. Now on your **Profile** page, click on the **Edit Profile** button and click again on `Upload Avatar` to see what error message we get. 
+
+![Image of Upload Avatar in the UI](assets/upload-avatar-in-the-UI.png)
+
+![Image of Upload Function Error in Profile Form](assets/upload-function-error-in-profile-form.png)
+
+From our **Inspect** page, when you click the `key_upload` name from the **Network** tab, you should see that the **OPTIONS** request and some others had a `404` error on them. 
+
+![Image of 404 Error on key_upload](assets/404-error-on-key-upload.png)
+
+From the above error message, it is a CORS issue. “The HTTP `OPTIONS` request method has a `404` error on it, and this request method is primarily used in combination with CORS. 
+
+- When a client makes a cross-origin request, the browser sends an `OPTIONS` preflight request to the server to determine if the requested resource is allowed to be accessed from the client's domain.
+  
+- The server responds with the appropriate CORS headers that allow or deny the request. In our case, it's denying it.” ~ Josh from the BootCamp.
+
+Let’s head back to our AWS console and navigate to the **API Gateway** service. On the left side of your page, select **CORS** so we can configure it. 
+
+- Click on **Configure**
+  
+    - Access-Control-Allow-Origin: **Your Frontend Gitpod URL**
+      
+    - Click the **Add** button to add it
+      
+    - Access-Control-Allow-Methods: `POST` and `OPTIONS`
+      
+    - Access-Control-Allow-Headers: `*,authorization`
+      
+    - Click the **Add** button to add it
+      
+    - Access-Control-Expose-Headers: `*,authorization`
+      
+    - Click the **Add** button to add it
+    
+    - Access-Control-Allow-Credentials: `YES`
+      
+- Go ahead and **configure**
+    
+    ![Image of CORS Configurations](assets/cors-configuration.png)
+    
+
+After that update, the changes should take effect immediately. Now go back to your web app in your browser and refresh. Now on your **Profile** page, click on the **Edit Profile** button and click again on `Upload Avatar` to see what error message we get.
+
+Still getting a `CORS` error. 
+
+![Image of CORS Error](assets/cors-error.png)
+
+There is, however, one route that returns a 204 for `OPTIONS`.
+
+![Image of Success on the OPTIONS request](assets/success-on-the-options-request.png)
+
+We will come back to this later
+
+
+### Troubleshooting
+
+Let’s go back to working on our presigned URL. 
+
+In the `ProfileForm.js` file, let’s make the following updates to our `s3upload` function
+
+![Image of s3Upload Function Modifications I](assets/s3upload-function-modifications-1.png)
+
+![Image of s3Upload Function Modifications II](assets/s3upload-function-modifications-2.png)
+
+Now rename our current `s3upload` function to `s3uploadkey`. Add another function for our `s3upload`
+
+![Image of the Renamed s3Upload Function](assets/renamed-s3upload-function.png)
+
+```jsx
+const s3upload = async (event)=> {
+    const file = event.target.files[0]
+    filename = file.name
+    size = file.size
+    type = file.type
+    const preview_image_url = URL.createObjectURL(file)
+    console.log(filename,size,type)
+    try {
+      console.log('s3upload')
+      const backend_url = ""
+      const res = await fetch (backend_url, {
+        method: "POST",
+        headers: {
+          'Accept': 'appplication/json',
+          'Content-Type': 'application/json'
+      }})
+```
+
+For this new function, we want to pass binary data to fetch. ChatGPT helped out with some generated code.
+
+![Image of New Updates to s3Upload Function](assets/new-updates-to-s3upload-function.png)
+
+Let’s update our `function.rb` file to include a `puts` at the end of the function so we can view it when executed. 
+
+**Remember, we don't want to commit this to our Lambda in AWS, as we're just doing this for debugging purposes at the moment.**
+
+![Image of New Updates to Upload Lambda Function](assets/new-updates-to-upload-lambda-function.png)
+
+Let’s test out our `function.rb` file. We should have a presigned URL returned. 
+
+In your `aws/lambdas/cruddur-upload-avatar` directory, run this command.
+
+```bash
+bundle exec ruby function.rb
+```
+
+Copy the generated URL from executing the file and paste it as a value for the `backend_url` of your `s3upload` function in your `ProfileForm.js` file. 
+
+![Image of Updated Backend URL for Upload](assets/updated-backend-url-for-upload.png)
+
+Now, go back to your web app in your browser and refresh. Now on your **Profile** page, click on the **Edit Profile** button, and now you should see a button that says `Choose File`. Click on it to try and upload a file and let’s see what error message we get. 
+
+![Image of Adding a Choose File Button to Source Code](assets/adding-choose-file-button-to-source-code.png)
+
+![Image of Adding a Choose File Button](assets/adding-choose-file-button.png)
+
+If you try uploading and don’t find your file, maybe it’s because of the extension attached to the file. You can remove these codes `accept="image/png, image/jpeg`,” and now you should be able to see all files. 
+
+Here’s the new error generated from the upload
+
+![Image of Undefined Filename in Code](assets/undefined-filename-in-code.png)
+
+We need to define our variables. Let’s go ahead and add the `const` keyword to our variables in the `s3upload` function - `ProfileForm.js`
+
+```jsx
+const s3upload = async (event)=> {
+const file = event.target.files[0]
+const filename = file.name
+const size = file.size
+const type = file.type
+const preview_image_url = URL.createObjectURL(file)
+console.log(filename,size,type)
+```
+
+Go to your web app in your browser and refresh. Now on your **Profile** page, click on the **Edit Profile** button, and now you should see a button that says `Choose File`. Click on it to try and upload a file and let’s see what error message we get. 
+
+![Image of Another CORS Error](assets/another-cors-error.png)
+
+We are still getting a CORS error. 
+
+Let’s execute our `function.rb` file again, copy the generated URL, and paste it as a value for the `backend_url` of your `s3upload` function in your `ProfileForm.js` file. 
+
+More CORS error. Maybe we don’t need the `formData` function.
+
+Make the following adjustments to your code
+
+![Image of Removing formData Function](assets/removing-formdata-function.png)
+
+Go ahead and make more updates by changing the method to a `PUT`. and removing some of the extra lines of codes. 
+
+![Image of Changing POST Request to PUT](assets/chaning-post-request-to-put.png)
+
+</p>
+</details>
+
+<details><summary>Fix CORS Issues for API Gateway</summary>
+<p> 
+
+Now let’s try to fix our CORS issues with our API Gateway. 
+
+- Navigate to your AWS console and go to the **API Gateway** service
+  
+- Add an additional route with the following configuration
+    
+    ![Image of Adding a New Route to API Gateway](assets/adding-new-route-to-api-gateway.png)
+    
+
+With this `proxy` route added, we will now pass along our headers and everything else to our lambda so you have all the raw request information unmodified. 
+
+If you notice, there is no authorizer attached to this route. 
+
+We also need to pass along our origin else our request doesn’t work.
+
+Let’s go ahead and update our CORS configuration. You should see no configuration if you check your CORS configuration page because those configs are now passed along in our lambda function. 
+
+Make sure the lambda function code in the AWS console matches this one. Do the same for the one in your repo. Don’t forget to deploy the changes in your lambda. 
+
+```ruby
+require 'aws-sdk-s3'
+require 'json'
+
+def handler(event:, context:)
+  puts event
+  s3 = Aws::S3::Resource.new
+  bucket_name = ENV["UPLOADS_BUCKET_NAME"]
+  object_key = 'mock.jpg'
+  
+  obj = s3.bucket(bucket_name).object(object_key)
+  url = obj.presigned_url(:put, expires_in: 60 * 5)
+  url # this is the data that will be returned
+  body = {url: url}.to_json
+  {
+# replace the gitpod URL with yours 
+    headers: {
+      "Access-Control-Allow-Headers": "*, Authorization",
+      "Access-Control-Allow-Origin": "https://3000-jhargett1-awsbootcampcru-em6b96761ns.ws-us93.gitpod.io",
+      "Access-Control-Allow-Methods": "OPTIONS,GET,POST"
+    },
+    statusCode: 200,
+    body: body
+    
+  }
+end
+```
+
+Remember to generate another `presignedURL` because it expires in every `5` mins its generated. 
+
+```bash
+# run in the "/aws/lambdas/cruddur-upload-avatar" directory
+bundle exec ruby function.rb
+```
+
+Run all the necessary scripts to make sure your web app is returning some data. So we don’t forget to run our migration scripts, let’s add it to our `setup` script. 
+
+In the `bin/db/setup` file, make the following updates:
+
+```ruby
+#! /usr/bin/bash
+set -e # stop if it fails at any point
+
+CYAN='\033[1;36m'
+NO_COLOR='\033[0m'
+LABEL="db-setup"
+printf "${CYAN}==== ${LABEL}${NO_COLOR}\n"
+
+ABS_PATH=$(readlink -f "$0")
+DB_PATH=$(dirname $ABS_PATH)
+
+source "$DB_PATH/drop"
+source "$DB_PATH/create"
+source "$DB_PATH/schema-load"
+source "$DB_PATH/seed"
+python "$DB_PATH/update_cognito_user_ids"
+python "$DB_PATH/migrate"
+```
+
+Now let’s test our upload in the web app.
+
+![Image of Still Getting CORS Error](assets/still-getting-cors-error.png)
+
+We are getting the above error because we forgot to pass our `origin` in our `headers`. 
+
+In your `ProfileForm.js` file, let’s add the `origin` to our headers in the `s3uploadkey` function. 
+
+```jsx
+const res = await fetch(gateway_url, {
+  method: "POST",
+  body: JSON.stringify(json),
+  headers: {
+// make sure you replace "origin" with yours
+    'Origin': "https://3000-jhargett1-awsbootcampcru-em6b96761ns.ws-us93.gitpod.io",
+    'Authorization': `Bearer ${access_token}`,
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+  }
+```
+
+Refresh your web app and try uploading again. 
+
+![Image of Resolved CORS Error](assets/resolved-cors-error.png)
+
+Yay!!! 🎉 Now we have success and also a presigned URL generated for us which is what we intended. We need to pass along that URL
+
+![Image of Passing our Presigned URL to our Function I](assets/passing-presigned-url-to-function-1.png)
+
+![Image of Passing our Presigned URL to our Function II](assets/passing-presigned-url-to-function-2.png)
+
+![Image of Passing our Presigned URL to our Function III](assets/passing-presigned-url-to-function-3.png)
+
+In your `s3upload` function, let’s assign our `presignedurl` to wait for the completion of the `s3uploadkey` function. 
+
+![Image of New s3upload Function](assets/new-s3upload-fucntion-presigned-url.png)
+
+![Image of Github Diff of Changes to the Function I](assets/github-diff-of-changes-to-the-function-1.png)
+
+![Image of Github Diff of Changes to the Function II](assets/github-diff-of-changes-to-the-function-2.png)
+
+Currently, values are hard coded. To solve this, we will need to get our custom domain going for API Gateway. 
+
+We already have `api.mydomain.com` for our load balancer, so we need to use it for our API Gateway. 
+
+🤔 Let’s point our ALB to our API Gateway for any requests needed. 
+
+*Note*: Certain prefixes can go to API Gateway; the rest can go to AWS Fargate. 
+
+Let’s set up our custom domain for the API Gateway.
+
+![Image of Custom Domain Setup for API Gateway](assets/custom-domain-for-api-gateway.png)
+
+After adding that customer domain, go ahead and refresh your web app again. Try uploading again and make sure you are getting a presigned URL back. If everything still works, you should be in good shape. If not, continue troubleshooting.
+
+We need to add a CORS (Cross-origin resource sharing) policy to our `cruddur-uploaded-avatars` bucket. 
+
+Under the **Permissions** tab, scroll down to where you see CORS and add this JSON policy
+
+![Image of CORS IAM Policy on Bucket](assets/cors-iam-policy-on-bucket.png)
+
+Let’s add this to our list of policies in our repo
+
+In the `aws/` folder, make another folder, `s3` with a file, `cors.json`
+
+```bash
+mkdir aws/s3
+touch aws/s3/cors.json
+```
+
+In `aws/s3/cors.json` file, add the following 
+
+```json
+[
+  {
+      "AllowedHeaders": [
+          "*"
+      ],
+      "AllowedMethods": [
+          "PUT"
+      ],
+      "AllowedOrigins": [
+          "https://*.gitpod.io"
+      ],
+      "ExposeHeaders": [
+          "x-amz-server-side-encryption",
+          "x-amz-request-id",
+          "x-amz-id-2"
+      ],
+      "MaxAgeSeconds": 3000
+  }
+]
+```
+
+Let’s make some changes in our `ProfileForm.js` file. We are just simply updating the endpoints not to be hard-coded anymore.
+
+![Image of Adding API Endpoint as an Environment Variable I](assets/adding-api-endpoint-as-env-vars-1.png)
+
+![Image of Adding API Endpoint as an Environment Variable II](assets/adding-api-endpoint-as-env-vars-2.png)
+
+Add the following variables to your `frontend-react-js.env.erb` file
+
+```ruby
+REACT_APP_FRONTEND_URL=https://3000-<%= ENV['GITPOD_WORKSPACE_ID'] %>.<%= ENV['GITPOD_WORKSPACE_CLUSTER_HOST'] %>
+REACT_APP_API_GATEWAY_ENDPOINT_URL=https://d-ed6u0p1amk.execute-api.ca-central-1.amazonaws.com
+```
+
+Make sure the `...GATEWAY_ENDPOINT` is your invoke URL, not the custom domain API gateway domain name. 
+
+Go ahead and regenerate the file again
+
+```bash
+./bin/frontend/generate-env
+```
+
+Start up your application or just refresh your web app if it’s already started up. Make sure you are returning data. 
+
+Try uploading a file again in your **Profile** page and see what error you get. 
+
+If you are getting the `className` error, check that none of your files has it misspelled or called it wrongly, like saying `class` instead of `className`.
+
+Check that your `ProfileHeading.js` file is properly configured 
+
+![Image of Github Diff to Change Class to ClassName](assets/github-diff-to-change-class-to-classname.png)
+
+Also, check your `checkAuth.js` file to remove some of the noise we have in our console 
+
+![Image of Modifying CheckAuth File](assets/modifying-checkauth-file.png)
+
+Go ahead and clean up your `ProfileForm.js` file 
+
+![Image of Profile Form Cleanup I](assets/profile-form-cleaning-1.png)
+
+![Image of Profile Form Cleanup II](assets/profile-form-cleaning-2.png)
+
+In your `CruddurUploadAvatar` lambda, update the `Access-Control-Allow-Origin` value to your current `gitpod` frontend URL. 
+
+- Don’t forget to deploy changes on Lambda
 
 </p>
 </details>
@@ -3369,45 +4378,307 @@ But it doesn’t implement or save your `bio` in real-time.
 
 ### 9. Create JWT Lambda Layer 
 
+We need to add our `jwt` module and make some modifications to our Lambda.
 
-
-
-<details><summary> Something</summary>
+<details><summary>Implementation</summary>
 <p> 
+
+In the `aws/lambdas/cruddur-upload-avatar/Gemfile`, add the module
+
+```bash
+gem "jwt"
+```
+
+Navigate to that directory, `cruddur-upload-avatars` and run this command to install that gem. 
+
+```bash
+bundle install
+```
+
+In `function.rb` file, update with the following code:
+
+```ruby
+require 'aws-sdk-s3'
+require 'json'
+require 'jwt'
+
+def handler(event:, context:)
+  puts event
+  # return cors headers for preflight check
+  if event['routeKey'] == "OPTIONS /{proxy+}"
+    puts({step: 'preflight', message: 'preflight CORS check'}.to_json)
+    { 
+      headers: {
+        "Access-Control-Allow-Headers": "*, Authorization",
+        "Access-Control-Allow-Origin": "https://3000-omenking-awsbootcampcru-2n1d6e0bd1f.ws-us94.gitpod.io",
+        "Access-Control-Allow-Methods": "OPTIONS,GET,POST"
+      },
+      statusCode: 200
+    }
+  else
+    token = event['headers']['authorization'].split(' ')[1]
+    puts({step: 'presignedurl', access_token: token}.to_json)
+
+    body_hash = JSON.parse(event["body"])
+    extension = body_hash["extension"]
+
+    decoded_token = JWT.decode token, nil, false
+    cognito_user_uuid = decoded_token[0]['sub']
+
+    s3 = Aws::S3::Resource.new
+    bucket_name = ENV["UPLOADS_BUCKET_NAME"]
+    object_key = "#{cognito_user_uuid}.#{extension}"
+
+    puts({object_key: object_key}.to_json)
+
+    obj = s3.bucket(bucket_name).object(object_key)
+    url = obj.presigned_url(:put, expires_in: 60 * 5)
+    url # this is the data that will be returned
+    body = {url: url}.to_json
+    { 
+      headers: {
+        "Access-Control-Allow-Headers": "*, Authorization",
+        "Access-Control-Allow-Origin": "https://3000-omenking-awsbootcampcru-2n1d6e0bd1f.ws-us94.gitpod.io",
+        "Access-Control-Allow-Methods": "OPTIONS,GET,POST"
+      },
+      statusCode: 200, 
+      body: body 
+    }
+  end # if 
+end # def handler
+```
+
+Don’t forget to update your lambda function with the same code. And deploy changes after the changes. 
+
+After uploading changes, attempt uploading a file again. 
+
+Now like we did with our authorizer, let’s download the contents of our `cruddur-upload-avatars` directory locally to our computer. The files are `function.rb`, `Gemfile` and `Gemfile.lock`. When the download is done, zip the 3 files and rename the zipped file to `ruby-lambda.zip`. 
+
+- Now navigate back to your lambda console on AWS, upload the zip file, and deploy changes. This should be on the `CruddurAvatarUplaod` lambda function. If you are not sure it deployed the changes, just add something to your comment and deploy it.
+  
+- Again, attempt uploading your file again.
+  
+- View your CloudWatch logs and see if you are still getting the error `"Cannot load such file -- jwt"` error. If so, we need to implement a Lambda layer to install this dependency since adding the `jwt` gem is not working for us.
+
+In the `bin` folder, create another folder, `lambda-layers`, with a script file, `ruby-jwt`.
+
+```bash
+#! /usr/bin/bash
+
+gem i jwt -Ni /tmp/lambda-layers/ruby-jwt/ruby/gems/2.7.0
+cd /tmp/lambda-layers/ruby-jwt
+
+zip -r lambda-layers . -x ".*" -x "*/.*"
+zipinfo -t lambda-layers
+
+aws lambda publish-layer-version \
+  --layer-name jwt \
+  --description "Lambda Layer for JWT" \
+  --license-info "MIT" \
+  --zip-file fileb://lambda-layers.zip \
+  --compatible-runtimes ruby2.7
+```
+
+To ensure you have the right permissions to execute the newly created script, run the following commands:
+
+```bash
+# by default, you will get a permission denied when trying to run a script you just created
+# run this command to grant it permission - https://www.tutorialspoint.com/unix/unix-file-permission.htm
+chmod 555 bin/lambda-layers/ruby-jwt
+  
+# execute the script 
+./bin/lambda-layers/ruby-jwt
+```
+
+After the script executes, let’s go to our Lambda function and delete the `Gemfile` and `Gemfile.lock` we uploaded.  
+
+- Navigate to the **Code** tab, scroll down to the **Lambda Layers** section.
+
+- Click on **Add layers**
+
+- Under the **Choose a layer** section, select **Custom layers**
+  
+- Select the `jwt` layer we just created
+
+- Version: **1**
+
+- Go ahead and **Add**
+
+After adding the layer, go ahead and deploy changes in your lambda. 
+
+Now go to your CloudWatch logs and refresh so that you can see when the new logs come in. 
+
+Now refresh your web app and attempt uploading the file again. 
+
+If you are not able to return a `presignedurl` or getting this error, follow these steps to resolve it 
+
+![Image of Presigned Upload Error on CloudWatch](assets/presigned-upload-error-on-cloudwatch.png)
+
+If no error, proceed to the **continue** section.
+
+### Troubleshooting
+
+Steps to resolve the error:
+
+Firstly, check that you have the right `API_GATEWAY_ENDPOINT` in your environment variable file. 
+
+- This should be the `Invoke URL` and not the `API Gateway domain name`
+
+- If you have that correctly set, proceed to the next step
+
+Secondly, ensure your `OPTIONS` route in your API Gateway is integrated into your `CruddurAvatarUpload` lambda. 
+
+- This can be done through the **API Gateway** console
+
+- Navigate to the **Integrations** section
+  
+- Select the **OPTIONS** route, and on the right side of the page, you should see **Configure**
+  
+- Go ahead and click the drop-down to integrate the lambda function
+
+![Image of Successful Integration to OPTIONS Route](assets/successful-integration-to-options-route.png)
+
+- If you have that correctly set, proceed to the next step
+
+Thirdly, navigate to your `LambdaAuthorizer` function in your **Lambda** console
+
+- Navigate to the **Monitor** tab
+
+- Click on **View CloudWatch Logs** to view your logs for the function
+
+- Check the latest log stream and open
+
+- Expand each one until you see your returned **Bearer** code
+  
+- Copy that code to this [JWT Online Decoder](https://jwt.io/), paste it on the **Encoded** section on the left side
+  
+- Make sure that your token returns a `header`, `payload` and `signature`
+
+- If you have that correctly set, proceed to the next step
+
+Lastly, make the following updates to your `index.js` file in your `LambdaAuthorizer` function 
+
+```jsx
+// change this 
+const jwt = event.headers.authorization;
+
+// to this 
+const jwt = event.headers.authorization.split(' ')[1];
+```
+
+After all these changes, you should be returning a `presignedurl` now.
+
+### Continue
+
+If no errors, you should get these messages in your CloudWatch Logs. 
+
+Check your CloudWatch logs to be sure no errors. Yay!!! It worked. 🎉
+
+![Image of Returned Presigned URL on CloudWatch](assets/returned-presigned-url-on-cloudwatch.png)
+
+- Your logs should return the `presignedurl` and `access_token`
+
+- The `access_token` is now decoded, and now we should have our `sub`, which is the Cognito User ID. We can now use this as the identifier for our avatar.
+
+- Your logs should also return the Cognito User ID passed as the `object_key`.
+
+    - Go to your S3 and verify your image is uploaded with the file named the Cognito User ID.
+
+![Image of Successful Upload to S3 as Cognito User ID](assets/successful-upload-to-s3-as-cognito-user-id.png)
+
+If you are probably still getting a `CORS` error, go to your **API Gateway** and clear your entire CORS configurations to be sure there is no caching taking place.
 
 </p>
 </details>
-
-
 
 
 ### 10. Render Avatars in the App via CloudFront
 
+Make sure to delete the `data` and `mock` files in your `avatars` bucket.
 
+Our objective here is to render our uploaded images as our avatars. 
 
-<details><summary> Something</summary>
+Reviewing our `frontend-react-js/src/components/Profileinfo.js` file, we notice that we do have a class called `profile-avatar`. Since we have that, let’s make that into its component.
+
+<details><summary> Implementation</summary>
 <p> 
 
-</p>
-</details>
+In the `frontend-react-js/src/components/` directory, let’s create a file, `ProfileAvatar.js` with the following contents:
 
+```jsx
+import './ProfileAvatar.css';
 
-<details><summary> Something</summary>
-<p> 
+export default function ProfileAvatar(props) {
+  // remember your own domain
+  const backgroundImage = `url("https://assets.MYDOMAIN.com/banners/banner.jpg")`  
+  const styles = {
+    backgroundImage: backgroundImage,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  };
 
-</p>
-</details>
+  return (
+    <div 
+      className="profile-avatar"
+      style={styles}
+    ></div>
+  );
+}
+```
 
+To avoid errors, let’s create the `ProfileAvatar.css` file
 
-<details><summary> Something</summary>
-<p> 
+```bash
+touch frontend-react-js/src/components/ProfileAvatar.css
+```
 
-</p>
-</details>
+Now we need to update our `backgroundImage` URL to our cognito user ID. To do that, let’s set our `cognito_user_uuid` to the value of our `sub` attribute of the `cognito_user` object. 
 
+![Image of Github Diff of Updating Background Image URL](assets/github-diff-of-updating-background-image-url.png)
 
-<details><summary> Something</summary>
-<p> 
+Now we can update our `backgroundImage` in `ProfileAvatar.js` to use `${props}`
+
+```jsx
+const backgroundImage = `url("https://assets.MYDOMAIN.com/avatars/${props.id}.jpg")`;
+```
+
+Now we need to call our `ProfileAvatar` function.
+
+In your `frontend-react-js/src/components/ProfileInfo.js`, make the following updates 
+
+![Image of Github Diff of Calling the Profile Avatar Function](assets/github-diff-of-profile-avatar-function.png)
+
+Go to your web app and refresh. You should see your avatar appear close to your name on the left side of your page. 
+
+![Image of Successfully Implementing My Avatar](assets/successfully-implementing-my-avatar.png)
+
+If you are getting a `403` error on your `GET` request, simply delete this line in your `ProfileInfo.js` file
+
+```jsx
+<div className="profile-avatar"></div>
+```
+
+We also want this image displayed as our main Profile page image. We should be able to do that in our `ProfileHeading.js` file. 
+
+In your `ProfileHeading.js` file, make the following updates:
+
+![Image of Github Diff of Profile Heading](assets/github-diff-of-profile-heading.png)
+
+Let’s update our query template to return the new information we added, which is the cognito user uuid
+
+![Image of Github Diff of show SQL Script](assets/github-diff-of-show-sql-script.png)
+
+Go ahead and refresh your web app. Our main page image isn’t displaying anymore. 
+
+![Image of Disappeared Main Page](assets/disappeared-main-page.png)
+
+This should be an issue with our styling. Let’s head over to our `frontend-react-js/src/components/ProfileHeading.css` file and make the following updates:
+
+![Image of Github Diff of Profile Heading Styling](assets/github-diff-of-profile-heading-styling.png)
+
+Refresh and confirm everything is working now
+
+![Image of Working Main Page](assets/working-main-page.png)
 
 </p>
 </details>
