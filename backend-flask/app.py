@@ -36,10 +36,12 @@ from aws_xray_sdk.ext.flask.middleware import XRayMiddleware
 import logging
 from time import strftime
 
-# Rollbar
-import rollbar
-import rollbar.contrib.flask
-from flask import got_request_exception
+from flask import Flask
+from flask import request, g
+
+from lib.rollbar import init_rollbar
+
+import routes.general
 
 # Configuring Logger to Use CloudWatch
 #LOGGER = logging.getLogger(__name__)
@@ -90,35 +92,12 @@ cors = CORS(
   methods="OPTIONS,GET,HEAD,POST"
 )
 
-# Health-check
-@app.route('/api/health-check')
-def health_check():
-  return {'success': True, 'ver': 1}, 200
-
-# Rollbar
-rollbar_access_token = os.getenv('ROLLBAR_ACCESS_TOKEN')
-# @app.before_first_request
+## initalization --------
 with app.app_context():
-  def init_rollbar():
-    """init rollbar module"""
-    rollbar.init(
-        # access token
-        rollbar_access_token,
-        # environment name
-        'production',
-        # server root directory, makes tracebacks prettier
-        root=os.path.dirname(os.path.realpath(__file__)),
-        # flask already sets up logging
-        allow_logging_basic_config=False)
+  g.rollbar = init_rollbar(app)
 
-    # send exceptions from `app` to rollbar, using flask's signal system.
-    got_request_exception.connect(rollbar.contrib.flask.report_exception, app)
-
-
-@app.route('/rollbar/test')
-def rollbar_test():
-    rollbar.report_message('Hello World!', 'warning')
-    return "Hello World!"
+# load routes -----------
+routes.general.load(app)
 
 #@app.after_request
 #def after_request(response):
