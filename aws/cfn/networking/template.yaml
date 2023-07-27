@@ -1,5 +1,18 @@
 AWSTemplateFormatVersion: 2010-09-09
 
+Description: |
+  The base networking components for our stack:
+  - VPC
+    - sets DNS hostnames for EC2 instances
+    - Only IPV4, IPV6 is disabled
+  - InternetGateway
+  - Route Table
+    - route to the IGW
+    - route to Local
+  - 6 Subnets Explicity Associated to Route Table
+    - 3 Public Subnets numbered 1 to 3
+    - 3 Private Subnets numbered 1 to 3
+
 Parameters:
   # VPC CIDR block
   VpcCidrBlock:
@@ -168,19 +181,19 @@ Outputs:
   VpcId:
     Value: !Ref VPC
     Export:
-      Name: VpcId
+      Name: !Sub "${AWS::StackName}VpcId"
 
   # VPC CIDR block
   VpcCidrBlock:
     Value: !GetAtt VPC.CidrBlock
     Export:
-      Name: VpcCidrBlock
+      Name: !Sub "${AWS::StackName}VpcCidrBlock"
 
   # Subnet CIDR blocks
   SubnetCidrBlocks:
     Value: !Join [",", !Ref SubnetCidrBlocks]
     Export:
-      Name: SubnetCidrBlocks
+      Name: !Sub "${AWS::StackName}SubnetCidrBlocks"
 
   # Subnet IDs
   SubnetIds:
@@ -193,7 +206,7 @@ Outputs:
         - !Ref SubnetPriv2
         - !Ref SubnetPriv3
     Export:
-      Name: SubnetIds
+      Name: !Sub "${AWS::StackName}SubnetIds"
 
   # AZ's
   AvailabilityZones:
@@ -203,4 +216,4 @@ Outputs:
         - !Ref Az2
         - !Ref Az3
     Export:
-      Name: AvailabilityZones
+      Name: !Sub "${AWS::StackName}AvailabilityZones"
