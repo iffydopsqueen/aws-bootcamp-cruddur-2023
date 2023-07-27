@@ -1,0 +1,28 @@
+{
+    "yaml.customTags": [
+        "!Base64 scalar",
+        "!Cidr scalar",
+        "!And sequence",
+        "!Equals sequence",
+        "!If sequence",
+        "!Not sequence",
+        "!Or sequence",
+        "!Condition scalar",
+        "!FindInMap sequence",
+        "!GetAtt scalar",
+        "!GetAZs scalar",
+        "!ImportValue scalar",
+        "!Join sequence",
+        "!Select sequence",
+        "!Split sequence",
+        "!Sub scalar",
+        "!Transform mapping",
+        "!Ref scalar",
+     ],
+
+    "yaml.schemas": {
+        "/workspace/aws-bootcamp-cruddur-2023/aws/cfn/service/template.yaml": "template.yaml",
+        "/workspace/aws-bootcamp-cruddur-2023/aws/cfn/networking/template.yaml": "template.yaml",
+        "/workspace/aws-bootcamp-cruddur-2023/aws/cfn/template.yaml": "template.yaml"
+  }
+}
