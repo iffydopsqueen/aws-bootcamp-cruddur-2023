@@ -21,8 +21,6 @@
      ],
 
     "yaml.schemas": {
-        "/workspace/aws-bootcamp-cruddur-2023/aws/cfn/service/template.yaml": "template.yaml",
-        "/workspace/aws-bootcamp-cruddur-2023/aws/cfn/networking/template.yaml": "template.yaml",
-        "/workspace/aws-bootcamp-cruddur-2023/aws/cfn/template.yaml": "template.yaml"
+        "/workspace/aws-bootcamp-cruddur-2023/aws/cfn/service/template.yaml": "template.yaml"
   }
 }

@@ -1,4 +1,6 @@
 *.env
+.aws-sam
+build.toml
 docker/**/*
 node_modules
 session-manager-plugin.*
