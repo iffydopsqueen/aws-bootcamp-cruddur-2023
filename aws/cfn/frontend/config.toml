@@ -1,0 +1,10 @@
+[deploy]
+bucket = 'simplynaturell-cruddur-cfn-artifacts'
+region = 'us-west-2'
+stack_name = 'CrdFrontend'
+
+[parameters]
+CertificateArn = 'arn:aws:acm:us-east-1:013073124868:certificate/d68b2621-a9c8-4592-a4eb-d9e212432e1a'
+WwwBucketName = 'www.simplynaturell.com'
+RootBucketName = 'simplynaturell.com'
+HostedZoneId = 'Z08803681DMUOOMUA61TQ'
