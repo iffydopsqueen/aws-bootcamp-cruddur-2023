@@ -1,0 +1,224 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: |
+  The base networking components for our stack:
+  - VPC
+    - sets DNS hostnames for EC2 instances
+    - Only IPV4, IPV6 is disabled
+  - InternetGateway
+  - Route Table
+    - route to the IGW
+    - route to Local
+  - 6 Subnets Explicity Associated to Route Table
+    - 3 Public Subnets numbered 1 to 3
+    - 3 Private Subnets numbered 1 to 3
+
+Parameters:
+  # VPC CIDR block
+  VpcCidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+
+  # availability zone for "us-west-2a"
+  Az1:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2a
+  
+  # subnet CIDR blocks
+  SubnetCidrBlocks: 
+    Description: "Comma-delimited list of CIDR blocks for our private public subnets"
+    Type: CommaDelimitedList
+    Default: >
+      10.0.0.0/24, 
+      10.0.4.0/24, 
+      10.0.8.0/24, 
+      10.0.12.0/24,
+      10.0.16.0/24,
+      10.0.20.0/24
+
+  # availability zone for "us-west-2c"
+  Az2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2c
+
+  # availability zone for "us-west-2d"
+  Az3:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2d
+
+Resources:
+  # VPC
+  VPC:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}VPC"
+
+  # Internet Gateway
+  IGW:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}IGW"
+  
+  # attach IGW to VPC
+  AttachIGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref IGW
+
+  # Route Tables
+  RouteTable:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-routetable.html
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}RT"
+
+  # attach route table to IGW
+  RouteToIGW:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html
+    Type: AWS::EC2::Route
+    DependsOn: AttachIGW
+    Properties:
+      RouteTableId: !Ref RouteTable
+      GatewayId: !Ref IGW
+      DestinationCidrBlock: 0.0.0.0/0
+
+  # Public Subnets
+  SubnetPub1:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref Az1
+      CidrBlock: !Select [0, !Ref SubnetCidrBlocks]
+      EnableDns64: false
+      MapPublicIpOnLaunch: true # public subnet
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}SubnetPub1"
+
+  SubnetPub2:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref Az2
+      CidrBlock: !Select [1, !Ref SubnetCidrBlocks]
+      EnableDns64: false
+      MapPublicIpOnLaunch: true # public subnet
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}SubnetPub2"
+
+  SubnetPub3:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref Az3
+      CidrBlock: !Select [2, !Ref SubnetCidrBlocks]
+      EnableDns64: false
+      MapPublicIpOnLaunch: true # public subnet
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}SubnetPub3"
+
+  # Private Subnets 
+  SubnetPriv1:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref Az1
+      CidrBlock: !Select [3, !Ref SubnetCidrBlocks]
+      EnableDns64: false
+      MapPublicIpOnLaunch: false # private subnet
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}SubnetPriv1"
+
+  SubnetPriv2:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref Az2
+      CidrBlock: !Select [4, !Ref SubnetCidrBlocks]
+      EnableDns64: false
+      MapPublicIpOnLaunch: false # private subnet
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}SubnetPriv2"
+
+  SubnetPriv3:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref Az3
+      CidrBlock: !Select [5, !Ref SubnetCidrBlocks]
+      EnableDns64: false
+      MapPublicIpOnLaunch: false # private subnet
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}SubnetPriv3"
+
+Outputs:
+  # VPC ID
+  VpcId:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}VpcId"
+
+  # VPC CIDR block
+  VpcCidrBlock:
+    Value: !GetAtt VPC.CidrBlock
+    Export:
+      Name: !Sub "${AWS::StackName}VpcCidrBlock"
+
+  # Subnet CIDR blocks
+  SubnetCidrBlocks:
+    Value: !Join [",", !Ref SubnetCidrBlocks]
+    Export:
+      Name: !Sub "${AWS::StackName}SubnetCidrBlocks"
+
+  # Subnet IDs
+  PublicSubnetIds:
+    Value: !Join 
+      - ","
+      - - !Ref SubnetPub1
+        - !Ref SubnetPub2
+        - !Ref SubnetPub3
+    Export:
+      Name: !Sub "${AWS::StackName}PublicSubnetIds"
+  PrivateSubnetIds:
+    Value: !Join 
+      - ","
+      - - !Ref SubnetPriv1
+        - !Ref SubnetPriv2
+        - !Ref SubnetPriv3
+    Export:
+      Name: !Sub "${AWS::StackName}PrivateSubnetIds"
+
+  # AZ's
+  AvailabilityZones:
+    Value: !Join 
+      - ","
+      - - !Ref Az1
+        - !Ref Az2
+        - !Ref Az3
+    Export:
+      Name: !Sub "${AWS::StackName}AvailabilityZones"
