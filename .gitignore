@@ -1,3 +1,4 @@
+tmp/*
 *.env
 .aws-sam
 build.toml
