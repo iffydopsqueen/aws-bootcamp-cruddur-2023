@@ -1,0 +1,10 @@
+#! /usr/bin/env bash
+
+set -e # stop the execution of the script if it fails
+
+STACK_NAMES=("CrdNet" "CrdCluster" "CrdDb" "CrdSrvBackendFlask")
+
+for stack_name in "${STACK_NAMES[@]}"; do
+    aws cloudformation delete-stack --stack-name "$stack_name"
+done
+

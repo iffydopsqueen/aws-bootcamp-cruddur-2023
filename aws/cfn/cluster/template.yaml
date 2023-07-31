@@ -122,7 +122,7 @@ Resources:
         - Key: routing.http.preserve_host_header.enabled
           Value: false
         - Key: deletion_protection.enabled
-          Value: true
+          Value: false
         - Key: load_balancing.cross_zone.enabled
           Value: true
         - Key: access_logs.s3.enabled
