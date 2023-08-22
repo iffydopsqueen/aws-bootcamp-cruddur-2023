@@ -38,7 +38,7 @@ Parameters:
     AllowedValues:
       - true
       - false
-    Default: true
+    Default: false
 
   EngineVersion:
     Type: String
